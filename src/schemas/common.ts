@@ -136,3 +136,115 @@ export const RecipeSuggestionInput = z.object({
   maxTimeMin: z.number().int().min(5).max(300).optional(),
   limit: z.number().int().min(1).max(10).optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Recipes (write + browse). Free for every account — the MCP server does not
+// apply subscription limits; the backend keeps its own validation.
+// ---------------------------------------------------------------------------
+
+const RecipeIngredientInput = z.object({
+  productName: z.string().min(1).max(200),
+  amount: z.number().min(0).max(10000),
+  unit: z.string().min(1).max(20),
+  // Optional per-100 macros so the recipe carries nutrition without a product lookup.
+  caloriesPer100: z.number().min(0).max(1000).optional(),
+  proteinPer100: z.number().min(0).max(100).optional(),
+  carbsPer100: z.number().min(0).max(100).optional(),
+  fatPer100: z.number().min(0).max(100).optional(),
+});
+
+const RecipeStepInput = z.object({
+  instruction: z.string().min(1).max(2000),
+});
+
+export const ListRecipesInput = z.object({
+  search: z.string().min(1).max(120).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
+export const PublicRecipesInput = z.object({
+  search: z.string().min(1).max(120).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
+export const GetRecipeInput = z.object({
+  id: z.string().min(1),
+});
+
+export const CreateRecipeInput = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(4000).optional(),
+  prepTimeMinutes: z.number().int().min(0).max(1440),
+  cookTimeMinutes: z.number().int().min(0).max(1440),
+  servings: z.number().int().min(1).max(100),
+  ingredients: z.array(RecipeIngredientInput).min(1).max(60),
+  steps: z.array(RecipeStepInput).min(1).max(50),
+  tags: z.array(z.string().min(1).max(40)).max(20).optional(),
+  isPublic: z.boolean().optional(),
+  sourceLanguage: z.enum(["pl", "en"]).optional(),
+});
+
+export const UpdateRecipeInput = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(4000).optional(),
+  prepTimeMinutes: z.number().int().min(0).max(1440).optional(),
+  cookTimeMinutes: z.number().int().min(0).max(1440).optional(),
+  servings: z.number().int().min(1).max(100).optional(),
+  ingredients: z.array(RecipeIngredientInput).min(1).max(60).optional(),
+  steps: z.array(RecipeStepInput).min(1).max(50).optional(),
+  tags: z.array(z.string().min(1).max(40)).max(20).optional(),
+  isPublic: z.boolean().optional(),
+});
+
+export const DeleteRecipeInput = z.object({
+  id: z.string().min(1),
+});
+
+// ---------------------------------------------------------------------------
+// Exercise catalog + strength plans
+// ---------------------------------------------------------------------------
+
+export const SearchExercisesInput = z.object({
+  search: z.string().min(1).max(120).optional(),
+  category: z.string().min(1).max(40).optional(),
+  equipment: z.string().min(1).max(60).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
+export const GetExerciseInput = z.object({
+  id: z.string().min(1),
+});
+
+export const ListWorkoutPlansInput = z.object({
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
+export const GetWorkoutPlanInput = z.object({
+  id: z.string().min(1),
+});
+
+const PlanExerciseInput = z.object({
+  exerciseId: z.string().min(1),
+  sets: z.number().int().min(1).max(20).optional(),
+  reps: z.string().min(1).max(20).optional(),
+  orderIndex: z.number().int().min(0).max(200).optional(),
+  dayOfWeek: z.number().int().min(1).max(7).optional(),
+});
+
+export const CreateWorkoutPlanInput = z.object({
+  name: z.string().min(1).max(120),
+  description: z.string().max(2000).optional(),
+  exercises: z.array(PlanExerciseInput).min(1).max(60),
+});
+
+export const UpdateWorkoutPlanInput = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().max(2000).optional(),
+  exercises: z.array(PlanExerciseInput).min(1).max(60).optional(),
+});
+
+export const DeleteWorkoutPlanInput = z.object({
+  id: z.string().min(1),
+});

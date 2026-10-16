@@ -3,10 +3,51 @@ import { z } from "zod";
 import { fitailyGet, fitailySend } from "../api/fitaily-client";
 import type { McpAuth } from "../auth/verify";
 import { requireScope } from "../auth/verify";
-import { TrainingHistoryInput, LogActivityInput } from "../schemas/common";
+import {
+  TrainingHistoryInput,
+  LogActivityInput,
+  ListWorkoutPlansInput,
+  GetWorkoutPlanInput,
+  CreateWorkoutPlanInput,
+  UpdateWorkoutPlanInput,
+  DeleteWorkoutPlanInput,
+} from "../schemas/common";
 
-/** Cardio/manual activities + plans. Strength sessions stay read-only
- * (single active-session guard + set structure don't fit chat). */
+interface RawPlanExercise {
+  exerciseId: string;
+  sets?: number | null;
+  reps?: string | null;
+  dayOfWeek?: number | null;
+  exercise?: { name?: string } | null;
+}
+
+interface RawPlan {
+  id: string;
+  name: string;
+  description?: string | null;
+  frequency?: number | null;
+  duration?: string | null;
+  exercises?: RawPlanExercise[];
+}
+
+function trimPlan(p: RawPlan): object {
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description ?? null,
+    frequency: p.frequency ?? null,
+    duration: p.duration ?? null,
+    exercises: (p.exercises || []).map((e) => ({
+      exerciseId: e.exerciseId,
+      name: e.exercise?.name ?? null,
+      sets: e.sets ?? null,
+      reps: e.reps ?? null,
+      dayOfWeek: e.dayOfWeek ?? null,
+    })),
+  };
+}
+
+/** Cardio/manual activities, plans and strength-plan templates. */
 export function registerTrainingTools(server: McpServer, auth: McpAuth, accessToken: string): void {
   server.registerTool(
     "get_training_history",
@@ -106,6 +147,108 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       return {
         content: [{ type: "text", text: JSON.stringify({ id: (created as any).id ?? null, name: input.name }) }],
       };
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // Strength plan templates (free for every account).
+  // Sessions themselves stay read-only: one active session per user plus the
+  // per-set structure do not fit a chat turn.
+  // -------------------------------------------------------------------------
+
+  server.registerTool(
+    "get_workout_plans",
+    {
+      description: "Strength training plan templates (name, description, exercises).",
+      inputSchema: ListWorkoutPlansInput,
+    },
+    async (input) => {
+      requireScope(auth, "training:read");
+      const res = await fitailyGet<any>(accessToken, "/workout-plans", {});
+      const list = Array.isArray(res) ? res : res.plans || res.items || res.data || [];
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ plans: (list as RawPlan[]).slice(0, input.limit ?? 30).map(trimPlan) }),
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "get_workout_plan",
+    {
+      description: "One strength plan by id, with exercises and their sets/reps.",
+      inputSchema: GetWorkoutPlanInput,
+    },
+    async (input) => {
+      requireScope(auth, "training:read");
+      const plan = await fitailyGet<RawPlan>(accessToken, `/workout-plans/${input.id}`);
+      return { content: [{ type: "text", text: JSON.stringify(trimPlan(plan)) }] };
+    },
+  );
+
+  server.registerTool(
+    "create_workout_plan",
+    {
+      description:
+        "WRITE: create a strength plan template. Confirm the whole plan with the user first. exerciseId values must come from search_exercises — never invent them. reps is a free string (e.g. \"8-12\").",
+      inputSchema: CreateWorkoutPlanInput,
+    },
+    async (input) => {
+      requireScope(auth, "training:write");
+      const created = await fitailySend<RawPlan>(accessToken, "POST", "/workout-plans", {
+        name: input.name,
+        description: input.description,
+        exercises: input.exercises.map((e, idx) => ({
+          exerciseId: e.exerciseId,
+          sets: e.sets,
+          reps: e.reps,
+          orderIndex: e.orderIndex ?? idx,
+          dayOfWeek: e.dayOfWeek,
+        })),
+      });
+      return { content: [{ type: "text", text: JSON.stringify({ plan: trimPlan(created) }) }] };
+    },
+  );
+
+  server.registerTool(
+    "update_workout_plan",
+    {
+      description:
+        "WRITE: update a strength plan. Send only changed fields; `exercises` replaces the whole list. Confirm with the user first.",
+      inputSchema: UpdateWorkoutPlanInput,
+    },
+    async (input) => {
+      requireScope(auth, "training:write");
+      const { id, exercises, ...rest } = input;
+      const body: Record<string, unknown> = { ...rest };
+      if (exercises) {
+        body.exercises = exercises.map((e, idx) => ({
+          exerciseId: e.exerciseId,
+          sets: e.sets,
+          reps: e.reps,
+          orderIndex: e.orderIndex ?? idx,
+          dayOfWeek: e.dayOfWeek,
+        }));
+      }
+      const updated = await fitailySend<RawPlan>(accessToken, "PUT", `/workout-plans/${id}`, body);
+      return { content: [{ type: "text", text: JSON.stringify({ plan: trimPlan(updated) }) }] };
+    },
+  );
+
+  server.registerTool(
+    "delete_workout_plan",
+    {
+      description: "WRITE: delete a strength plan template. Confirm with the user first.",
+      inputSchema: DeleteWorkoutPlanInput,
+    },
+    async (input) => {
+      requireScope(auth, "training:write");
+      await fitailySend(accessToken, "DELETE", `/workout-plans/${input.id}`);
+      return { content: [{ type: "text", text: JSON.stringify({ deleted: input.id }) }] };
     },
   );
 }

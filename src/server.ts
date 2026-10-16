@@ -11,6 +11,7 @@ import { registerWaterTools } from "./tools/water";
 import { registerTrainingTools } from "./tools/training";
 import { registerProgressTools } from "./tools/progress";
 import { registerRecipeTools } from "./tools/recipes";
+import { registerExerciseTools } from "./tools/exercises";
 
 const app = express();
 app.use(helmet());
@@ -94,6 +95,7 @@ app.post("/mcp", async (req, res) => {
     registerTrainingTools(server, auth, accessToken);
     registerProgressTools(server, auth, accessToken);
     registerRecipeTools(server, auth, accessToken);
+    registerExerciseTools(server, auth, accessToken);
     const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);

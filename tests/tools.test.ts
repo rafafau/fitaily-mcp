@@ -8,6 +8,7 @@ import { registerWaterTools } from "../src/tools/water";
 import { registerTrainingTools } from "../src/tools/training";
 import { registerProgressTools } from "../src/tools/progress";
 import { registerRecipeTools } from "../src/tools/recipes";
+import { registerExerciseTools } from "../src/tools/exercises";
 
 const SECRET = "test-secret";
 const RESOURCE = "https://mcp.fitaily.com/mcp";
@@ -39,6 +40,7 @@ function wire(scopes = "nutrition:read nutrition:write training:read training:wr
   registerTrainingTools(srv, auth, "tok");
   registerProgressTools(srv, auth, "tok");
   registerRecipeTools(srv, auth, "tok");
+  registerExerciseTools(srv, auth, "tok");
 }
 
 const calls: Array<{ url: string; method: string; body?: any }> = [];
@@ -192,5 +194,79 @@ describe("recipes", () => {
     const out = await handlers.get("get_recipe_suggestions")!({ maxTimeMin: 30, limit: 5 });
     expect(out.content[0].text).toContain("Szybka");
     expect(out.content[0].text).not.toContain("Wolna");
+  });
+});
+
+describe("recipes CRUD", () => {
+  it("create_recipe POSTs ingredients and steps", async () => {
+    wire();
+    stubFetch({ "/recipes": { id: "r1", name: "Kopytka", servings: 4, prepTimeMinutes: 20, cookTimeMinutes: 15 } });
+    const out = await handlers.get("create_recipe")!({
+      name: "Kopytka",
+      prepTimeMinutes: 20,
+      cookTimeMinutes: 15,
+      servings: 4,
+      ingredients: [{ productName: "Ziemniaki", amount: 500, unit: "g" }],
+      steps: [{ instruction: "Ugotuj ziemniaki" }],
+    });
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body.ingredients[0].productName).toBe("Ziemniaki");
+    expect(out.content[0].text).toContain("Kopytka");
+  });
+
+  it("get_recipe returns numbered steps and ingredients", async () => {
+    wire();
+    stubFetch({ "/recipes/r1": { id: "r1", name: "X", ingredients: [{ productName: "Mąka", amount: 200, unit: "g" }], steps: [{ instruction: "Wymieszaj" }] } });
+    const out = await handlers.get("get_recipe")!({ id: "r1" });
+    expect(out.content[0].text).toContain("Mąka");
+    expect(out.content[0].text).toContain("\"step\":1");
+  });
+
+  it("delete_recipe hits the id URL", async () => {
+    wire();
+    stubFetch({ "/recipes/r9": {} });
+    await handlers.get("delete_recipe")!({ id: "r9" });
+    expect(calls[0].method).toBe("DELETE");
+    expect(calls[0].url).toContain("/recipes/r9");
+  });
+});
+
+describe("exercise catalog", () => {
+  it("search_exercises trims to id/name/muscle", async () => {
+    wire();
+    stubFetch({ "/exercises/global": { exercises: [{ id: "e1", name: "Bench Press", category: "CHEST", muscleGroup: "Pectoralis", equipment: "Barbell" }] } });
+    const out = await handlers.get("search_exercises")!({ search: "bench" });
+    expect(out.content[0].text).toContain("Bench Press");
+    expect(out.content[0].text).toContain("Pectoralis");
+  });
+});
+
+describe("workout plans", () => {
+  it("create_workout_plan assigns orderIndex from position", async () => {
+    wire();
+    stubFetch({ "/workout-plans": { id: "p1", name: "Push", exercises: [{ exerciseId: "e1", sets: 4, reps: "8-12" }] } });
+    const out = await handlers.get("create_workout_plan")!({
+      name: "Push",
+      exercises: [{ exerciseId: "e1", sets: 4, reps: "8-12" }, { exerciseId: "e2", sets: 3 }],
+    });
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body.exercises[0].orderIndex).toBe(0);
+    expect(calls[0].body.exercises[1].orderIndex).toBe(1);
+    expect(out.content[0].text).toContain("Push");
+  });
+
+  it("update_workout_plan replaces the exercise list only when sent", async () => {
+    wire();
+    stubFetch({ "/workout-plans/p1": { id: "p1", name: "Push B", exercises: [] } });
+    await handlers.get("update_workout_plan")!({ id: "p1", name: "Push B" });
+    expect(calls[0].method).toBe("PUT");
+    expect(calls[0].body.exercises).toBeUndefined();
+  });
+
+  it("get_workout_plans lists templates", async () => {
+    wire();
+    stubFetch({ "/workout-plans": [{ id: "p1", name: "Push", exercises: [{ exerciseId: "e1", sets: 3, exercise: { name: "Bench" } }] }] });
+    const out = await handlers.get("get_workout_plans")!({});
+    expect(out.content[0].text).toContain("Bench");
   });
 });
