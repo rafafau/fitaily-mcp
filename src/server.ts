@@ -14,6 +14,17 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
+// Minimal access log (method/path/status only — never tokens or bodies).
+// The MCP SDK gives no request log; without this, client discovery failures
+// are invisible (lesson from the Claude DCR failure, 2026-10-16).
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    console.log(`${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
+  });
+  next();
+});
+
 app.get("/health", (_req, res) => {
   res.json({ success: true, service: "fitaily-mcp", timestamp: new Date().toISOString() });
 });
@@ -27,9 +38,24 @@ app.get("/.well-known/oauth-protected-resource", (_req, res) => {
   });
 });
 
-// Also serve it under /mcp well-known path variant some clients probe.
-app.get("/.well-known/oauth-protected-resource/mcp", (_req, res) => {
-  res.redirect(308, "/.well-known/oauth-protected-resource");
+// RFC 8414 Authorization Server Metadata, served directly (200, no redirect)
+// for clients that probe the resource server first instead of following the
+// `authorization_servers` link in the protected-resource document.
+app.get("/.well-known/oauth-authorization-server", (_req, res) => {
+  const issuer = oauthIssuer();
+  res.json({
+    issuer,
+    authorization_endpoint: `${issuer}/api/oauth/authorize`,
+    token_endpoint: `${issuer}/api/oauth/token`,
+    registration_endpoint: `${issuer}/api/oauth/register`,
+    revocation_endpoint: `${issuer}/api/oauth/revoke`,
+    introspection_endpoint: `${issuer}/api/oauth/introspect`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code", "refresh_token"],
+    code_challenge_methods_supported: ["S256"],
+    scopes_supported: ["nutrition:read", "training:read", "progress:read"],
+    token_endpoint_auth_methods_supported: ["none"],
+  });
 });
 
 // Stateless Streamable HTTP: auth first, then one server+transport per request.
