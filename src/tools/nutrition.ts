@@ -1,8 +1,17 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import { fitailyGet } from "../api/fitaily-client";
+import { randomUUID } from "crypto";
+import { fitailyGet, fitailySend } from "../api/fitaily-client";
 import type { McpAuth } from "../auth/verify";
 import { requireScope } from "../auth/verify";
-import { TodayNutritionInput } from "../schemas/common";
+import { z } from "zod";
+import {
+  TodayNutritionInput,
+  MealHistoryInput,
+  AddMealInput,
+  UpdateMealInput,
+  DeleteMealInput,
+  UpdateNutritionGoalsInput,
+} from "../schemas/common";
 
 interface DaySummary {
   date: string;
@@ -12,17 +21,65 @@ interface DaySummary {
   water?: { total?: number; goal?: number };
 }
 
-/** GET /api/nutrition/day-summary — calories/macros/water for one day. */
+interface MealEntry {
+  id: string;
+  mealType: string;
+  foodName: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  servingSize?: string | null;
+  date?: string;
+}
+
+/** yyyy-MM-dd plus N days (for half-open backend ranges). */
+function addDays(day: string, n: number): string {
+  const d = new Date(day + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function trimMeal(m: MealEntry): object {  return {
+    id: m.id,
+    meal: m.mealType,
+    food: m.foodName,
+    kcal: m.calories,
+    protein_g: m.protein,
+    carbs_g: m.carbs,
+    fat_g: m.fat,
+    serving: m.servingSize ?? undefined,
+  };
+}
+
+async function mealsForDay(accessToken: string, date?: string): Promise<MealEntry[]> {
+  const day = date || new Date().toISOString().slice(0, 10);
+  // Backend /nutrition uses a half-open range [gte, lt): a bare endDate is
+  // midnight, so the same day would match nothing — bump it by one day.
+  const res = await fitailyGet<any>(accessToken, "/nutrition", {
+    startDate: day,
+    endDate: addDays(day, 1),
+    limit: 100,
+  }).catch(() => ({ entries: [] }));
+  const list = Array.isArray(res) ? res : res.entries || res.items || [];
+  return (list as MealEntry[]).slice(0, 30);
+}
+
+/** GET /api/nutrition/day-summary + item list — answers "what did I eat". */
 export function registerNutritionTools(server: McpServer, auth: McpAuth, accessToken: string): void {
   server.registerTool(
     "get_today_nutrition",
     {
-      description: "Daily nutrition: consumed calories/macros, goals and remaining budget. Defaults to today.",
+      description:
+        "Daily nutrition: consumed calories/macros, goals, remaining budget AND the itemized meal list. Defaults to today.",
       inputSchema: TodayNutritionInput,
     },
     async (input) => {
       requireScope(auth, "nutrition:read");
-      const day = await fitailyGet<DaySummary>(accessToken, "/nutrition/day-summary", input.date ? { date: input.date } : {});
+      const [day, meals] = await Promise.all([
+        fitailyGet<DaySummary>(accessToken, "/nutrition/day-summary", input.date ? { date: input.date } : {}),
+        mealsForDay(accessToken, input.date),
+      ]);
       return {
         content: [
           {
@@ -40,10 +97,112 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
                 fat_g: day.consumed?.fat ?? 0,
               },
               water_ml: day.water ? { consumed: day.water.total, goal: day.water.goal } : undefined,
+              meals: meals.map(trimMeal),
             }),
           },
         ],
       };
+    },
+  );
+
+  server.registerTool(
+    "get_meal_history",
+    {
+      description: "Meal entries over a date range, optionally filtered by meal type.",
+      inputSchema: MealHistoryInput,
+    },
+    async (input) => {
+      requireScope(auth, "nutrition:read");
+      const params: Record<string, string | number | undefined> = {
+        startDate: input.from,
+        endDate: addDays(input.to, 1),
+        limit: input.limit ?? 30,
+      };
+      if (input.mealType) params.mealType = input.mealType;
+      const res = await fitailyGet<any>(accessToken, "/nutrition", params);
+      const list = Array.isArray(res) ? res : res.entries || res.items || [];
+      return {
+        content: [{ type: "text", text: JSON.stringify({ meals: (list as MealEntry[]).slice(0, input.limit ?? 30).map(trimMeal) }) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "get_nutrition_goals",
+    {
+      description: "Current daily calorie and macro goals.",
+      inputSchema: z.object({}),
+    },
+    async () => {
+      requireScope(auth, "nutrition:read");
+      const goals = await fitailyGet<any>(accessToken, "/nutrition-goals", {});
+      return { content: [{ type: "text", text: JSON.stringify(goals) }] };
+    },
+  );
+
+  server.registerTool(
+    "update_nutrition_goals",
+    {
+      description:
+        "WRITE: change daily calorie/macro goals. Confirm the new numbers with the user first.",
+      inputSchema: UpdateNutritionGoalsInput,
+    },
+    async (input) => {
+      requireScope(auth, "nutrition:write");
+      const goals = await fitailySend<any>(accessToken, "PATCH", "/nutrition-goals", input);
+      return { content: [{ type: "text", text: JSON.stringify(goals) }] };
+    },
+  );
+
+  server.registerTool(
+    "add_meal",
+    {
+      description:
+        "WRITE: log a meal. Ask the user to confirm first (dish, meal type, macros). Macros are required — look them up with search_foods, never invent them. clientRequestId: generate once per user request (uuid) and reuse it if you retry, so a retry never duplicates the meal.",
+      inputSchema: AddMealInput,
+    },
+    async (input) => {
+      requireScope(auth, "nutrition:write");
+      const created = await fitailySend<any>(accessToken, "POST", "/nutrition", {
+        mealType: input.mealType,
+        foodName: input.foodName,
+        calories: input.calories,
+        protein: input.protein,
+        carbs: input.carbs,
+        fat: input.fat,
+        servingSize: input.servingSize,
+        date: input.date,
+        clientRequestId: input.clientRequestId || randomUUID(),
+      });
+      const entry = (created as any).id ? created : created;
+      return { content: [{ type: "text", text: JSON.stringify({ meal: trimMeal(entry as MealEntry) }) }] };
+    },
+  );
+
+  server.registerTool(
+    "update_meal",
+    {
+      description: "WRITE: edit a logged meal by id (from get_today_nutrition/get_meal_history). Confirm with the user first.",
+      inputSchema: UpdateMealInput,
+    },
+    async (input) => {
+      requireScope(auth, "nutrition:write");
+      const { id, ...patch } = input;
+      const updated = await fitailySend<any>(accessToken, "PUT", `/nutrition/${id}`, patch);
+      return { content: [{ type: "text", text: JSON.stringify({ meal: trimMeal(updated as MealEntry) }) }] };
+    },
+  );
+
+  server.registerTool(
+    "delete_meal",
+    {
+      description: "WRITE: delete a logged meal by id. Confirm with the user first.",
+      inputSchema: DeleteMealInput,
+    },
+    async (input) => {
+      requireScope(auth, "nutrition:write");
+      await fitailySend(accessToken, "DELETE", `/nutrition/${input.id}`);
+      return { content: [{ type: "text", text: JSON.stringify({ deleted: input.id }) }] };
     },
   );
 }

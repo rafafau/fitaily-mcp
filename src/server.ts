@@ -3,11 +3,14 @@ import helmet from "helmet";
 import cors from "cors";
 import { McpServer } from "@modelcontextprotocol/server";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
-import { mcpResourceUrl, oauthIssuer } from "./config";
+import { mcpResourceUrl, oauthIssuer, port } from "./config";
 import { McpAuthError, verifyMcpToken } from "./auth/verify";
 import { registerNutritionTools } from "./tools/nutrition";
+import { registerFoodTools } from "./tools/foods";
+import { registerWaterTools } from "./tools/water";
 import { registerTrainingTools } from "./tools/training";
 import { registerProgressTools } from "./tools/progress";
+import { registerRecipeTools } from "./tools/recipes";
 
 const app = express();
 app.use(helmet());
@@ -34,7 +37,14 @@ app.get("/.well-known/oauth-protected-resource", (_req, res) => {
   res.json({
     resource: mcpResourceUrl(),
     authorization_servers: [oauthIssuer()],
-    scopes_supported: ["nutrition:read", "training:read", "progress:read"],
+    scopes_supported: [
+      "nutrition:read",
+      "training:read",
+      "progress:read",
+      "nutrition:write",
+      "training:write",
+      "progress:write",
+    ],
   });
 });
 
@@ -53,7 +63,14 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
-    scopes_supported: ["nutrition:read", "training:read", "progress:read"],
+    scopes_supported: [
+      "nutrition:read",
+      "training:read",
+      "progress:read",
+      "nutrition:write",
+      "training:write",
+      "progress:write",
+    ],
     token_endpoint_auth_methods_supported: ["none"],
   });
 });
@@ -70,10 +87,13 @@ app.post("/mcp", async (req, res) => {
   }
   const accessToken = req.headers.authorization!.slice(7);
   try {
-    const server = new McpServer({ name: "fitaily", version: "0.1.0" }, { capabilities: { tools: {} } });
+    const server = new McpServer({ name: "fitaily", version: "0.2.0" }, { capabilities: { tools: {} } });
     registerNutritionTools(server, auth, accessToken);
+    registerFoodTools(server, auth, accessToken);
+    registerWaterTools(server, auth, accessToken);
     registerTrainingTools(server, auth, accessToken);
     registerProgressTools(server, auth, accessToken);
+    registerRecipeTools(server, auth, accessToken);
     const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
