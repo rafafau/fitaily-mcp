@@ -164,7 +164,172 @@ export const ListRecipesInput = z.object({
 
 export const PublicRecipesInput = z.object({
   search: z.string().min(1).max(120).optional(),
+  tags: z.array(z.string().min(1).max(40)).max(6).optional(),
+  /** Per-serving calories. */
+  minCalories: z.number().min(0).max(5000).optional(),
+  maxCalories: z.number().min(0).max(5000).optional(),
+  /** Per-serving grams. */
+  minProtein: z.number().min(0).max(300).optional(),
+  maxProtein: z.number().min(0).max(300).optional(),
+  minCarbs: z.number().min(0).max(500).optional(),
+  maxCarbs: z.number().min(0).max(500).optional(),
+  minFat: z.number().min(0).max(300).optional(),
+  maxFat: z.number().min(0).max(300).optional(),
+  maxTotalTimeMin: z.number().int().min(1).max(1440).optional(),
+  minRatingCount: z.number().int().min(0).max(1000).optional(),
+  sort: z
+    .enum(["newest", "rating", "time_asc", "calories_asc", "calories_desc", "protein_desc"])
+    .optional(),
+  page: z.number().int().min(1).max(100).optional(),
   limit: z.number().int().min(1).max(50).optional(),
+});
+
+export const GetPublicRecipeInput = z.object({
+  slug: z.string().min(1).max(120),
+});
+
+export const RecipeFavoriteInput = z.object({
+  recipeId: z.string().min(1),
+  favorite: z.boolean().optional(),
+});
+
+export const RateRecipeInput = z.object({
+  recipeId: z.string().min(1),
+  rating: z.number().int().min(1).max(5),
+});
+
+export const RemainingMacrosRecipesInput = z.object({
+  date: DateString,
+  mealType: MealType.optional(),
+  /** Overrides the day's remaining calories (e.g. from a planned meal). */
+  maxCalories: z.number().min(0).max(5000).optional(),
+  minProtein: z.number().min(0).max(300).optional(),
+  maxTotalTimeMin: z.number().int().min(1).max(1440).optional(),
+  tags: z.array(z.string().min(1).max(40)).max(4).optional(),
+  limit: z.number().int().min(1).max(20).optional(),
+});
+
+export const SuggestMealInput = z.object({
+  mealType: MealType,
+  date: DateString,
+  limit: z.number().int().min(1).max(10).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Diet plans
+// ---------------------------------------------------------------------------
+
+export const ListDietPlansInput = z.object({
+  tab: z.enum(["mine", "discover"]).optional(),
+  search: z.string().min(1).max(120).optional(),
+  /** Only return the currently active plan. */
+  activeOnly: z.boolean().optional(),
+});
+
+export const GetDietPlanInput = z.object({
+  id: z.string().min(1),
+  /** Max days to expand (plans can be 30+ days). */
+  maxDays: z.number().int().min(1).max(60).optional(),
+});
+
+export const GenerateDietPlanInput = z.object({
+  template: z
+    .enum(["balanced", "highprotein", "lowcarb", "keto", "vegan", "vegetarian"])
+    .optional(),
+  calorieTarget: z.number().int().min(1000).max(6000).optional(),
+  proteinTarget: z.number().min(0).max(500).optional(),
+  carbsTarget: z.number().min(0).max(800).optional(),
+  fatTarget: z.number().min(0).max(400).optional(),
+  durationDays: z.number().int().min(1).max(30).optional(),
+  mealCount: z.number().int().min(2).max(6).optional(),
+  tastePreference: z.enum(["mixed", "sweet", "savory"]).optional(),
+  cookingTimePreference: z.enum(["little", "medium", "much"]).optional(),
+  breakfastPreference: z.enum(["mixed", "sweet", "savory"]).optional(),
+  tags: z.array(z.string().min(1).max(40)).max(6).optional(),
+  plannedStartDate: DateString,
+  seed: z.number().int().min(0).max(1_000_000).optional(),
+});
+
+export const ActivateDietPlanInput = z.object({
+  id: z.string().min(1),
+  startDate: DateString,
+});
+
+export const ExtendDietPlanInput = z.object({
+  id: z.string().min(1),
+  additionalDays: z.number().int().min(1).max(30),
+});
+
+// ---------------------------------------------------------------------------
+// Period stats + goals
+// ---------------------------------------------------------------------------
+
+const PeriodInput = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+});
+
+export const NutritionStatsInput = PeriodInput;
+export const ActivityStatsInput = PeriodInput;
+export const MeasurementStatsInput = PeriodInput;
+
+export const ExerciseHistoryInput = z.object({
+  exerciseId: z.string().min(1),
+  months: z.number().int().min(1).max(24).optional(),
+});
+
+export const MuscleActivationInput = z.object({
+  since: DateString,
+});
+
+export const ForecastInput = z.object({
+  metric: z.enum([
+    "weight",
+    "bodyFat",
+    "muscleMass",
+    "waterMass",
+    "boneMass",
+    "activityDuration",
+    "activityCalories",
+    "activityDistance",
+    "foodCalories",
+    "foodProtein",
+    "foodCarbs",
+    "foodFat",
+  ]),
+  predictionDays: z.number().int().min(1).max(90).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Fridge + shopping list
+// ---------------------------------------------------------------------------
+
+export const AddFridgeItemInput = z.object({
+  name: z.string().min(1).max(120),
+  quantity: z.string().min(1).max(60),
+  category: z.string().min(1).max(40),
+  expiryDate: DateString,
+  calories: z.number().min(0).max(5000).optional(),
+  protein: z.number().min(0).max(500).optional(),
+  carbs: z.number().min(0).max(500).optional(),
+  fat: z.number().min(0).max(500).optional(),
+});
+
+export const DeleteFridgeItemInput = z.object({
+  id: z.string().min(1),
+});
+
+export const AddShoppingItemInput = z.object({
+  name: z.string().min(1).max(120),
+  quantity: z.string().min(1).max(60).optional(),
+  category: z.string().min(1).max(40).optional(),
+});
+
+export const UpdateShoppingItemInput = z.object({
+  id: z.string().min(1),
+  isCompleted: z.boolean().optional(),
+  name: z.string().min(1).max(120).optional(),
+  quantity: z.string().min(1).max(60).optional(),
 });
 
 export const GetRecipeInput = z.object({

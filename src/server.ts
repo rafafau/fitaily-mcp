@@ -11,6 +11,11 @@ import { registerWaterTools } from "./tools/water";
 import { registerTrainingTools } from "./tools/training";
 import { registerProgressTools } from "./tools/progress";
 import { registerRecipeTools } from "./tools/recipes";
+import { registerDietPlanTools } from "./tools/dietPlans";
+import { registerProfileTools } from "./tools/profile";
+import { registerStatsTools } from "./tools/stats";
+import { registerStrengthStatsTools } from "./tools/strengthStats";
+import { registerPantryTools } from "./tools/pantry";
 import { registerExerciseTools } from "./tools/exercises";
 
 const app = express();
@@ -95,6 +100,11 @@ app.post("/mcp", async (req, res) => {
     registerTrainingTools(server, auth, accessToken);
     registerProgressTools(server, auth, accessToken);
     registerRecipeTools(server, auth, accessToken);
+    registerDietPlanTools(server, auth, accessToken);
+    registerProfileTools(server, auth, accessToken);
+    registerStatsTools(server, auth, accessToken);
+    registerStrengthStatsTools(server, auth, accessToken);
+    registerPantryTools(server, auth, accessToken);
     registerExerciseTools(server, auth, accessToken);
     const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     await server.connect(transport);

@@ -54,6 +54,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "Recent activities and strength workouts (type, date, distance, duration). No per-second GPS.",
       inputSchema: TrainingHistoryInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "training:read");
@@ -105,6 +106,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       inputSchema: z.object({
         limit: z.number().int().min(1).max(20).optional(),
       }),
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "training:read");
@@ -133,6 +135,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "WRITE: log a simple cardio/manual activity (run, ride, walk). Confirm with the user first. Strength sessions cannot be created here — one active session per user plus set structure don't fit chat.",
       inputSchema: LogActivityInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "training:write");
@@ -161,6 +164,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "Strength training plan templates (name, description, exercises).",
       inputSchema: ListWorkoutPlansInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "training:read");
@@ -182,6 +186,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "One strength plan by id, with exercises and their sets/reps.",
       inputSchema: GetWorkoutPlanInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "training:read");
@@ -196,6 +201,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "WRITE: create a strength plan template. Confirm the whole plan with the user first. exerciseId values must come from search_exercises — never invent them. reps is a free string (e.g. \"8-12\").",
       inputSchema: CreateWorkoutPlanInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "training:write");
@@ -220,6 +226,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "WRITE: update a strength plan. Send only changed fields; `exercises` replaces the whole list. Confirm with the user first.",
       inputSchema: UpdateWorkoutPlanInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "training:write");
@@ -244,6 +251,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "WRITE: delete a strength plan template. Confirm with the user first.",
       inputSchema: DeleteWorkoutPlanInput,
+      annotations: { destructiveHint: true },
     },
     async (input) => {
       requireScope(auth, "training:write");

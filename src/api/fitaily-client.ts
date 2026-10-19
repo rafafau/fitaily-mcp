@@ -43,6 +43,19 @@ export async function fitailySend<T>(
 }
 /** Thin authenticated fetch to the existing backend. No caching, no DB. */
 export async function fitailyGet<T>(accessToken: string, path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+  const json = await fitailyGetRaw<any>(accessToken, path, params);
+  return (json?.data ?? json) as T;
+}
+
+/**
+ * Same as {@link fitailyGet} but keeps the whole envelope (e.g. `pagination`).
+ * Use it when the caller needs metadata that lives outside `data`.
+ */
+export async function fitailyGetRaw<T>(
+  accessToken: string,
+  path: string,
+  params?: Record<string, string | number | boolean | undefined>,
+): Promise<T> {
   const base = fitailyApiUrl();
   const url = new URL(base + path);
   for (const [k, v] of Object.entries(params || {})) {
@@ -65,6 +78,5 @@ export async function fitailyGet<T>(accessToken: string, path: string, params?: 
     // Never leak backend bodies to the model; status is enough to branch on.
     throw new FitailyApiError(res.status, `Fitaily API error (${res.status})`);
   }
-  const json = (await res.json()) as any;
-  return (json?.data ?? json) as T;
+  return (await res.json()) as T;
 }

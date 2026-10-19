@@ -11,6 +11,7 @@ import {
   UpdateMealInput,
   DeleteMealInput,
   UpdateNutritionGoalsInput,
+  SuggestMealInput,
 } from "../schemas/common";
 
 interface DaySummary {
@@ -73,6 +74,7 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
       description:
         "Daily nutrition: consumed calories/macros, goals, remaining budget AND the itemized meal list. Defaults to today.",
       inputSchema: TodayNutritionInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "nutrition:read");
@@ -110,6 +112,7 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
     {
       description: "Meal entries over a date range, optionally filtered by meal type.",
       inputSchema: MealHistoryInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "nutrition:read");
@@ -132,6 +135,7 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
     {
       description: "Current daily calorie and macro goals.",
       inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
     },
     async () => {
       requireScope(auth, "nutrition:read");
@@ -141,11 +145,57 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   );
 
   server.registerTool(
+    "suggest_meal",
+    {
+      description:
+        "What to eat next for a given meal type: the backend splits the remaining daily budget across meals and ranks candidates from the user's history, recipes and products. Returns projected macros and a match score; falls back to recipes when nothing fits.",
+      inputSchema: SuggestMealInput,
+      annotations: { readOnlyHint: true },
+    },
+    async (input) => {
+      requireScope(auth, "nutrition:read");
+      const date = input.date ?? new Date().toISOString().slice(0, 10);
+      const res = await fitailyGet<any>(accessToken, "/meals/meal-suggestion/suggestions", {
+        mealType: input.mealType,
+        date,
+      });
+      const suggestions: any[] = res?.suggestions ?? [];
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              date,
+              meal_type: input.mealType,
+              meal_target: res?.mealTarget ?? null,
+              daily_remaining: res?.dailyRemaining ?? null,
+              suggestions: suggestions.slice(0, input.limit ?? 5).map((s) => ({
+                source: s.source ?? null,
+                recipe_id: s.recipeId ?? null,
+                recipe: s.recipeName ?? null,
+                product_id: s.productId ?? null,
+                product: s.productName ?? null,
+                grams: s.gramsToUse ?? null,
+                servings: s.servingMultiplier ?? null,
+                combo: s.comboItems ?? null,
+                projected: s.projected ?? null,
+                match_score: s.matchScore ?? null,
+              })),
+              offer_ai_fallback: res?.offerAiFallback ?? false,
+            }),
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
     "update_nutrition_goals",
     {
       description:
         "WRITE: change daily calorie/macro goals. Confirm the new numbers with the user first.",
       inputSchema: UpdateNutritionGoalsInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "nutrition:write");
@@ -160,6 +210,7 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
       description:
         "WRITE: log a meal. Ask the user to confirm first (dish, meal type, macros). Macros are required — look them up with search_foods, never invent them. clientRequestId: generate once per user request (uuid) and reuse it if you retry, so a retry never duplicates the meal.",
       inputSchema: AddMealInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "nutrition:write");
@@ -184,6 +235,7 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
     {
       description: "WRITE: edit a logged meal by id (from get_today_nutrition/get_meal_history). Confirm with the user first.",
       inputSchema: UpdateMealInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "nutrition:write");
@@ -198,6 +250,7 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
     {
       description: "WRITE: delete a logged meal by id. Confirm with the user first.",
       inputSchema: DeleteMealInput,
+      annotations: { destructiveHint: true },
     },
     async (input) => {
       requireScope(auth, "nutrition:write");

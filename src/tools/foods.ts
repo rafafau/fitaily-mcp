@@ -12,6 +12,7 @@ export function registerFoodTools(server: McpServer, auth: McpAuth, accessToken:
       description:
         "Search the food catalog by name (per-100g macros, servings). Call this before add_meal when the user names a product instead of giving macros.",
       inputSchema: FoodSearchInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "nutrition:read");
@@ -50,6 +51,7 @@ export function registerFoodTools(server: McpServer, auth: McpAuth, accessToken:
     {
       description: "Look up a product by barcode (per-100g macros).",
       inputSchema: BarcodeInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "nutrition:read");

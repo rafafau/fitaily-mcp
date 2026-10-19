@@ -8,6 +8,11 @@ import { registerWaterTools } from "../src/tools/water";
 import { registerTrainingTools } from "../src/tools/training";
 import { registerProgressTools } from "../src/tools/progress";
 import { registerRecipeTools } from "../src/tools/recipes";
+import { registerDietPlanTools } from "../src/tools/dietPlans";
+import { registerProfileTools } from "../src/tools/profile";
+import { registerStatsTools } from "../src/tools/stats";
+import { registerStrengthStatsTools } from "../src/tools/strengthStats";
+import { registerPantryTools } from "../src/tools/pantry";
 import { registerExerciseTools } from "../src/tools/exercises";
 
 const SECRET = "test-secret";
@@ -40,6 +45,11 @@ function wire(scopes = "nutrition:read nutrition:write training:read training:wr
   registerTrainingTools(srv, auth, "tok");
   registerProgressTools(srv, auth, "tok");
   registerRecipeTools(srv, auth, "tok");
+  registerDietPlanTools(srv, auth, "tok");
+  registerProfileTools(srv, auth, "tok");
+  registerStatsTools(srv, auth, "tok");
+  registerStrengthStatsTools(srv, auth, "tok");
+  registerPantryTools(srv, auth, "tok");
   registerExerciseTools(srv, auth, "tok");
 }
 
@@ -270,3 +280,340 @@ describe("workout plans", () => {
     expect(out.content[0].text).toContain("Bench");
   });
 });
+
+describe("recipe catalog", () => {
+  it("passes nutrition filters and keeps pagination metadata", async () => {
+    wire();
+    stubFetch({
+      "/recipes/public": {
+        data: [
+          {
+            id: "r1",
+            name: "Kurczak", slug: "kurczak", servings: 2, totalTimeMinutes: 25,
+            nutrition: { caloriesPerServing: 380, proteinPerServing: 42, carbsPerServing: 12, fatPerServing: 14 },
+            rating: { average: 4.5, count: 2 }, tags: [{ slug: "high-protein", label: "High protein" }],
+          },
+        ],
+        pagination: { page: 2, limit: 10, total: 23, totalPages: 3, hasNext: true, hasPrev: true },
+      },
+    });
+    const out = await handlers.get("search_public_recipes")!({
+      search: "kurczak", minProtein: 30, maxCalories: 500, sort: "protein_desc", page: 2, limit: 10,
+    });
+    const text = out.content[0].text;
+    expect(text).toContain("high-protein");
+    expect(text).toContain('"total":23');
+    expect(calls[0].url).toContain("minProtein=30");
+    expect(calls[0].url).toContain("maxCalories=500");
+    expect(calls[0].url).toContain("sort=protein_desc");
+    expect(calls[0].url).toContain("page=2");
+  });
+
+  it("get_recipe_tags lists slugs with counts", async () => {
+    wire();
+    stubFetch({ "/recipes/tags": { data: [{ slug: "vegan", label: "Vegan", count: 6 }] } });
+    const out = await handlers.get("get_recipe_tags")!({});
+    expect(out.content[0].text).toContain("vegan");
+    expect(out.content[0].text).toContain("6");
+  });
+
+  it("get_public_recipe fetches by slug", async () => {
+    wire();
+    stubFetch({
+      "/recipes/public/kurczak": {
+        id: "r1", name: "Kurczak", slug: "kurczak", servings: 2,
+        nutrition: { caloriesPerServing: 380, proteinPerServing: 42 },
+        ingredients: [{ productName: "Pierś", amount: 400, unit: "g" }],
+        steps: [{ instruction: "Upiecz" }],
+      },
+    });
+    const out = await handlers.get("get_public_recipe")!({ slug: "kurczak" });
+    expect(out.content[0].text).toContain("Pierś");
+    expect(out.content[0].text).toContain("kcal_per_serving");
+  });
+
+  it("favorite_recipe toggles POST/DELETE", async () => {
+    wire();
+    stubFetch({ "/recipes/r1/favorite": {} });
+    await handlers.get("favorite_recipe")!({ recipeId: "r1", favorite: true });
+    await handlers.get("favorite_recipe")!({ recipeId: "r1", favorite: false });
+    expect(calls[0].method).toBe("POST");
+    expect(calls[1].method).toBe("DELETE");
+  });
+
+  it("rate_recipe posts the star value", async () => {
+    wire();
+    stubFetch({ "/recipes/r1/rate": { rating: 4 } });
+    const out = await handlers.get("rate_recipe")!({ recipeId: "r1", rating: 4 });
+    expect(calls[0].body.rating).toBe(4);
+    expect(out.content[0].text).toContain('"rating":4');
+  });
+
+  it("find_recipes_for_remaining_macros uses the day budget", async () => {
+    wire();
+    stubFetch({
+      "/nutrition/day-summary": {
+        date: "2026-10-19",
+        remaining: { calories: 800, protein: 60, carbs: 80, fat: 20 },
+      },
+      "/recipes/public": {
+        data: [
+          { id: "r1", name: "Omlet", nutrition: { caloriesPerServing: 300, proteinPerServing: 25, carbsPerServing: 5, fatPerServing: 20 } },
+          { id: "r2", name: "Tort", nutrition: { caloriesPerServing: 900, proteinPerServing: 10, carbsPerServing: 100, fatPerServing: 40 } },
+        ],
+      },
+    });
+    const out = await handlers.get("find_recipes_for_remaining_macros")!({ date: "2026-10-19", mealType: "lunch" });
+    const text = out.content[0].text;
+    expect(text).toContain("Omlet");
+    expect(text).not.toContain("Tort");
+    expect(text).toContain('"remaining_calories":800');
+  });
+});
+
+describe("meal suggestions", () => {
+  it("suggest_meal returns the budget and ranked picks", async () => {
+    wire();
+    stubFetch({
+      "/meals/meal-suggestion/suggestions": {
+        data: {
+          mealTarget: { calories: 500, protein: 40, carbs: 50, fat: 15 },
+          dailyRemaining: { calories: 1200, protein: 90, carbs: 120, fat: 40 },
+          suggestions: [{ source: "recipe", recipeId: "r1", recipeName: "Kurczak", projected: { calories: 480 }, matchScore: 88 }],
+          offerAiFallback: false,
+        },
+      },
+    });
+    const out = await handlers.get("suggest_meal")!({ mealType: "dinner", date: "2026-10-19" });
+    expect(out.content[0].text).toContain("Kurczak");
+    expect(calls[0].url).toContain("mealType=dinner");
+  });
+});
+
+describe("diet plans", () => {
+  it("get_diet_plans trims to headline targets", async () => {
+    wire();
+    stubFetch({
+      "/diet-plans": {
+        plans: [{
+          id: "p1", name: "Balanced 7d", durationDays: 7, dietTemplate: "balanced", isActive: true,
+          dailyCalorieTarget: 2000, dailyProteinTarget: 150, days: [{ dayNumber: 1, meals: [] }],
+        }],
+      },
+    });
+    const out = await handlers.get("get_diet_plans")!({});
+    expect(out.content[0].text).toContain("Balanced 7d");
+    expect(out.content[0].text).toContain("daily_targets");
+  });
+
+  it("get_diet_plan expands meals and sums day macros", async () => {
+    wire();
+    stubFetch({
+      "/diet-plans/p1": {
+        plan: {
+          id: "p1", name: "Plan", durationDays: 1,
+          days: [{ dayNumber: 1, dayOfWeek: 1, meals: [{ mealType: "lunch", recipeName: "Kurczak", calories: 500, protein: 40, carbs: 30, fat: 20 }] }],
+        },
+      },
+    });
+    const out = await handlers.get("get_diet_plan")!({ id: "p1" });
+    expect(out.content[0].text).toContain("Kurczak");
+    expect(out.content[0].text).toContain('"protein_g":40');
+  });
+
+  it("generate_diet_plan posts targets and returns the plan", async () => {
+    wire();
+    stubFetch({ "/diet-plans/generate": { full: { id: "p2", name: "High protein", days: [] } } });
+    const out = await handlers.get("generate_diet_plan")!({
+      template: "highprotein", calorieTarget: 2200, durationDays: 7, plannedStartDate: "2026-10-20",
+    });
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body.template).toBe("highprotein");
+    expect(calls[0].body.calorieTarget).toBe(2200);
+    expect(out.content[0].text).toContain("High protein");
+  });
+
+  it("activate/extend hit their endpoints", async () => {
+    wire();
+    stubFetch({ "/diet-plans/p1/activate": { updated: { id: "p1", startDate: "2026-10-20" } }, "/diet-plans/p1/extend": { durationDays: 14 } });
+    await handlers.get("activate_diet_plan")!({ id: "p1", startDate: "2026-10-20" });
+    await handlers.get("extend_diet_plan")!({ id: "p1", additionalDays: 7 });
+    expect(calls[0].url).toContain("/diet-plans/p1/activate");
+    expect(calls[1].method).toBe("PATCH");
+    expect(calls[1].body.additionalDays).toBe(7);
+  });
+});
+
+describe("profile, coach and dashboard", () => {
+  it("get_profile maps body data", async () => {
+    wire();
+    stubFetch({
+      "/auth/me": { id: "u1", displayName: "Rafał", height: 180, language: "pl", targetWeight: 78, dailyCaloriesGoal: 2200 },
+      "/measurements/latest": { weight: 82, date: "2026-10-18" },
+    });
+    const out = await handlers.get("get_profile")!({});
+    expect(out.content[0].text).toContain("Rafał");
+    expect(out.content[0].text).toContain('"weight_kg":82');
+    expect(out.content[0].text).toContain('"target_weight_kg":78');
+  });
+
+  it("get_coach_plan returns active=false when missing", async () => {
+    wire();
+    stubFetch({ "/coach/profile": { __status: 404 } });
+    const out = await handlers.get("get_coach_plan")!({});
+    expect(out.content[0].text).toContain('"active":false');
+  });
+
+  it("get_dashboard_summary maps headline stats", async () => {
+    wire();
+    stubFetch({ "/dashboard/stats": { calories: 1400, workouts: 3, weight: 81.5, records: 2 } });
+    const out = await handlers.get("get_dashboard_summary")!({});
+    expect(out.content[0].text).toContain('"workouts_this_week":3');
+  });
+});
+
+describe("period stats", () => {
+  it("get_nutrition_stats passes the resolved range", async () => {
+    wire();
+    stubFetch({ "/nutrition/stats": { totals: { calories: 14000 }, averagePerDay: { calories: 2000 }, entryCount: 42 } });
+    const out = await handlers.get("get_nutrition_stats")!({ from: "2026-10-01", to: "2026-10-10" });
+    expect(calls[0].url).toContain("startDate=2026-10-01");
+    expect(calls[0].url).toContain("endDate=2026-10-10");
+    expect(out.content[0].text).toContain("2000");
+  });
+
+  it("get_activity_stats trims by type", async () => {
+    wire();
+    stubFetch({ "/activity/stats": { totals: { duration: 3600, caloriesBurned: 500, distance: 10 }, byType: { running: { count: 2 } } } });
+    const out = await handlers.get("get_activity_stats")!({});
+    expect(out.content[0].text).toContain("by_type");
+  });
+
+  it("get_measurement_stats maps body metrics", async () => {
+    wire();
+    stubFetch({ "/measurements/stats": { count: 5, weight: { min: 80, max: 83, avg: 81.4, latest: 81, first: 83 } } });
+    const out = await handlers.get("get_measurement_stats")!({});
+    expect(out.content[0].text).toContain('"count":5');
+  });
+
+  it("get_goal_progress joins goals with their progress", async () => {
+    wire();
+    stubFetch({
+      "/goals/progress": { data: [{ goalId: "g1", remaining: 3, percentComplete: 62.5, isOnTrack: true }] },
+      "/goals?": { data: [{ id: "g1", type: "weight", name: "Waga", currentValue: 82, targetValue: 79, unit: "kg" }] },
+      "/goals": { data: [{ id: "g1", type: "weight", name: "Waga", currentValue: 82, targetValue: 79, unit: "kg" }] },
+    });
+    const out = await handlers.get("get_goal_progress")!({});
+    expect(out.content[0].text).toContain("Waga");
+    expect(out.content[0].text).toContain('"percent":62.5');
+  });
+
+  it("get_forecast posts the metric and maps confidence bands", async () => {
+    wire();
+    stubFetch({
+      "/predictions/forecast": {
+        success: true,
+        metric: "weight",
+        unit: "kg",
+        engineType: "timesfm",
+        forecast: [{ date: "2026-10-20T00:00:00.000Z", value: 81.9, confidenceLower: 81.2, confidenceUpper: 82.6 }],
+      },
+    });
+    const out = await handlers.get("get_forecast")!({ metric: "weight", predictionDays: 7 });
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body.metric).toBe("weight");
+    expect(calls[0].body.predictionDays).toBe(7);
+    expect(out.content[0].text).toContain('"lower":81.2');
+  });
+});
+
+describe("strength stats", () => {
+  it("get_personal_records lists current records with deltas", async () => {
+    wire();
+    stubFetch({
+      "/exercises/records/all": { data: [{ exerciseId: "e1", exerciseName: "Bench Press", recordType: "ONE_RM", value: 100, unit: "kg", previousValue: 95, achievedAt: "2026-10-10T10:00:00Z" }] },
+    });
+    const out = await handlers.get("get_personal_records")!({});
+    expect(out.content[0].text).toContain("Bench Press");
+    expect(out.content[0].text).toContain('"previous_value":95');
+  });
+
+  it("get_exercise_history passes months", async () => {
+    wire();
+    stubFetch({ "/workouts/exercise-history/e1": { data: [{ date: "2026-10-10", sets: [{ reps: 8, weight: 80, isCompleted: true }] }] } });
+    await handlers.get("get_exercise_history")!({ exerciseId: "e1", months: 6 });
+    expect(calls[0].url).toContain("months=6");
+  });
+
+  it("get_muscle_activation defaults since to 30 days ago", async () => {
+    wire();
+    stubFetch({ "/workouts/muscle-activation": { exercises: [{ exerciseId: "e1", name: "Squat", completedSets: 12 }] } });
+    const out = await handlers.get("get_muscle_activation")!({});
+    expect(calls[0].url).toContain("since=");
+    expect(out.content[0].text).toContain("Squat");
+  });
+});
+
+describe("fridge and shopping list", () => {
+  it("get_fridge trims the inventory", async () => {
+    wire();
+    stubFetch({ "/fridge": { data: [{ id: "f1", name: "Jajka", quantity: "10", category: "dairy", expiryDate: "2026-10-25" }] } });
+    const out = await handlers.get("get_fridge")!({});
+    expect(out.content[0].text).toContain("Jajka");
+  });
+
+  it("add_fridge_item posts the item", async () => {
+    wire();
+    stubFetch({ "/fridge": { id: "f2" } });
+    await handlers.get("add_fridge_item")!({ name: "Skyr", quantity: "2", category: "dairy", expiryDate: "2026-10-30" });
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body.name).toBe("Skyr");
+  });
+
+  it("get_shopping_list lists items", async () => {
+    wire();
+    stubFetch({ "/shopping-list": { data: { id: "l1", name: "Lista", items: [{ id: "i1", name: "Mleko", isCompleted: false }] } } });
+    const out = await handlers.get("get_shopping_list")!({});
+    expect(out.content[0].text).toContain("Mleko");
+  });
+
+  it("update_shopping_item ticks an item off", async () => {
+    wire();
+    stubFetch({ "/shopping-list/items/i1": { id: "i1", isCompleted: true } });
+    const out = await handlers.get("update_shopping_item")!({ id: "i1", isCompleted: true });
+    expect(calls[0].method).toBe("PUT");
+    expect(out.content[0].text).toContain('"completed":true');
+  });
+});
+
+describe("tool registry", () => {
+  it("registers every advertised tool exactly once", () => {
+    wire();
+    const names = [...handlers.keys()];
+    expect(new Set(names).size).toBe(names.length);
+    for (const name of [
+      "get_diet_plans",
+      "get_diet_plan",
+      "generate_diet_plan",
+      "get_recipe_tags",
+      "get_public_recipe",
+      "find_recipes_for_remaining_macros",
+      "suggest_meal",
+      "get_profile",
+      "get_coach_plan",
+      "get_dashboard_summary",
+      "get_nutrition_stats",
+      "get_activity_stats",
+      "get_measurement_stats",
+      "get_goal_progress",
+      "get_personal_records",
+      "get_exercise_history",
+      "get_muscle_activation",
+      "get_fridge",
+      "get_shopping_list",
+    ]) {
+      expect(names).toContain(name);
+    }
+  });
+});
+

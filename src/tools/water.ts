@@ -10,6 +10,7 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
     {
       description: "Water intake entries over a date range.",
       inputSchema: WaterHistoryInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "nutrition:read");
@@ -40,6 +41,7 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
     {
       description: "WRITE: log water intake in milliliters. Confirm with the user first.",
       inputSchema: LogWaterInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "nutrition:write");
@@ -58,6 +60,7 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
     {
       description: "WRITE: delete a water entry by id. Confirm with the user first.",
       inputSchema: DeleteWaterInput,
+      annotations: { destructiveHint: true },
     },
     async (input) => {
       requireScope(auth, "nutrition:write");

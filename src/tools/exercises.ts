@@ -38,6 +38,7 @@ export function registerExerciseTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "Search the Fitaily exercise catalog (name, category, equipment). Returns exerciseId values used when building a workout plan. Call this before create_workout_plan.",
       inputSchema: SearchExercisesInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "training:read");
@@ -65,6 +66,7 @@ export function registerExerciseTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "Single exercise by id (category, muscle group, equipment, type).",
       inputSchema: GetExerciseInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "training:read");

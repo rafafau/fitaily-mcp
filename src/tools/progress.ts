@@ -17,6 +17,7 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "Weight trend and latest measurement. Defaults to the last 30 days.",
       inputSchema: ProgressSummaryInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "progress:read");
@@ -49,6 +50,7 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "Body measurements (weight, body fat, muscle, circumferences) over a range.",
       inputSchema: MeasurementHistoryInput,
+      annotations: { readOnlyHint: true },
     },
     async (input) => {
       requireScope(auth, "progress:read");
@@ -81,6 +83,7 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "User goals with current vs target values.",
       inputSchema: z.object({}),
+      annotations: { readOnlyHint: true },
     },
     async () => {
       requireScope(auth, "progress:read");
@@ -113,6 +116,7 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "WRITE: log a body measurement (weight and/or composition). Confirm with the user first.",
       inputSchema: AddMeasurementInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "progress:write");
@@ -128,6 +132,7 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "WRITE: create a goal (weight, workouts, custom). Confirm with the user first.",
       inputSchema: AddGoalInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "progress:write");
@@ -143,6 +148,7 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "WRITE: update a goal (values, completion). Confirm with the user first.",
       inputSchema: UpdateGoalInput,
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async (input) => {
       requireScope(auth, "progress:write");
