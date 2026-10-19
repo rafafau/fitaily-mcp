@@ -7,6 +7,8 @@ import {
   NutritionStatsInput,
   ActivityStatsInput,
   MeasurementStatsInput,
+  NutritionHistoryInput,
+  MetricTrendInput,
   ForecastInput,
 } from "../schemas/common";
 import { resolvePeriod } from "../utils/dates";
@@ -167,6 +169,83 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
           {
             type: "text",
             text: JSON.stringify({ count: goals.length, goals }),
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "query_nutrition_history",
+    {
+      description:
+        "Meals aggregated by product over a period: how many times it was eaten and the average calories/macros per occurrence. Answers 'what do I eat most often' without listing every entry.",
+      inputSchema: NutritionHistoryInput,
+      annotations: { readOnlyHint: true },
+    },
+    async (input) => {
+      requireScope(auth, "nutrition:read");
+      const res = await fitailyGet<any>(accessToken, "/stats/nutrition-history", {
+        startDate: input.from,
+        endDate: input.to,
+        mealType: input.mealType,
+      });
+      const rows: any[] = Array.isArray(res) ? res : (res?.items ?? []);
+      const limit = input.limit ?? 20;
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              from: input.from,
+              to: input.to,
+              meal_type: input.mealType ?? null,
+              products: rows.slice(0, limit).map((row) => ({
+                food: row.foodName ?? null,
+                barcode: row.productBarcode ?? null,
+                times: row.occurrences ?? 0,
+                avg_kcal: round(row.avgCalories, 0),
+                avg_protein_g: round(row.avgProtein, 1),
+                avg_carbs_g: round(row.avgCarbs, 1),
+                avg_fat_g: round(row.avgFat, 1),
+              })),
+            }),
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "get_metric_trend",
+    {
+      description:
+        "Daily series for one metric: measurements (weight/bodyFat/bmi/muscleMass), nutrition (calories/protein/carbs/fat), workouts (duration/burnedCalories) or hydration (amount). Returns points, delta and start/end values — ideal for a trend summary or a chart.",
+      inputSchema: MetricTrendInput,
+      annotations: { readOnlyHint: true },
+    },
+    async (input) => {
+      requireScope(auth, "progress:read");
+      const { from, to } = resolvePeriod(input.from, input.to);
+      const trend = await fitailyGet<any>(accessToken, "/stats/metric-trend", {
+        category: input.category,
+        metric: input.metric,
+        startDate: from,
+        endDate: to,
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              category: trend?.category ?? input.category,
+              metric: trend?.metric ?? input.metric ?? null,
+              unit: trend?.unit ?? null,
+              points: Array.isArray(trend?.points) ? trend.points : [],
+              delta: round(trend?.delta, 1),
+              startValue: round(trend?.startValue, 2),
+              endValue: round(trend?.endValue, 2),
+            }),
           },
         ],
       };

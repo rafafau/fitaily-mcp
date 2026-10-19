@@ -23,7 +23,7 @@ pnpm dev      # http://localhost:3091/mcp + /health
 pnpm test
 ```
 
-## Tools (64)
+## Tools (66)
 
 **Nutrition** — `get_today_nutrition`, `get_meal_history`, `get_nutrition_goals`,
 `update_nutrition_goals`, `suggest_meal`, `add_meal`, `update_meal`, `delete_meal`
@@ -52,8 +52,8 @@ pnpm test
 
 **Progress** — `get_progress_summary`, `get_measurement_history`, `get_goals`,
 `get_goal_progress`, `get_nutrition_stats`, `get_activity_stats`,
-`get_measurement_stats`, `get_forecast` (TimesFM), `add_measurement`, `add_goal`,
-`update_goal`
+`get_measurement_stats`, `query_nutrition_history`, `get_metric_trend`,
+`get_forecast` (TimesFM), `add_measurement`, `add_goal`, `update_goal`
 
 **Profile** — `get_profile`, `get_coach_plan`, `get_dashboard_summary`
 
@@ -63,6 +63,14 @@ pnpm test
 
 Every read tool carries `readOnlyHint: true`; destructive writes carry
 `destructiveHint: true`. Input schemas live in `src/schemas/common.ts`.
+
+## Consumers
+
+- External assistants (ChatGPT, Claude, OpenCode, Cursor…) over OAuth.
+- The in-app Fitaily coach: the backend mints a short-lived read-only token
+  (`nutrition:read training:read progress:read`) and calls `tools/call` over
+  the private Docker network. The chat exposes a curated read-only subset
+  (`CHAT_TOOL_ALLOWLIST` in the backend) — writes stay external-only.
 
 Backend contract notes:
 

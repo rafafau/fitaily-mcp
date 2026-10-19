@@ -273,6 +273,20 @@ export const NutritionStatsInput = PeriodInput;
 export const ActivityStatsInput = PeriodInput;
 export const MeasurementStatsInput = PeriodInput;
 
+export const NutritionHistoryInput = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd"),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd"),
+  mealType: MealType.optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+
+export const MetricTrendInput = z.object({
+  category: z.enum(["measurement", "nutrition", "workout", "hydration"]),
+  metric: z.string().min(1).max(40).optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+});
+
 export const ExerciseHistoryInput = z.object({
   exerciseId: z.string().min(1),
   months: z.number().int().min(1).max(24).optional(),

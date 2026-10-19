@@ -525,6 +525,47 @@ describe("period stats", () => {
     expect(calls[0].body.predictionDays).toBe(7);
     expect(out.content[0].text).toContain('"lower":81.2');
   });
+
+  it("query_nutrition_history aggregates by product", async () => {
+    wire();
+    stubFetch({
+      "/stats/nutrition-history": {
+        data: [
+          { foodName: "Skyr", productBarcode: null, occurrences: 4, avgCalories: 120, avgProtein: 18, avgCarbs: 6, avgFat: 1 },
+          { foodName: "Jajka", productBarcode: null, occurrences: 2, avgCalories: 140, avgProtein: 12, avgCarbs: 1, avgFat: 10 },
+        ],
+      },
+    });
+    const out = await handlers.get("query_nutrition_history")!({ from: "2026-10-01", to: "2026-10-19" });
+    const text = out.content[0].text;
+    expect(text).toContain("Skyr");
+    expect(text).toContain('"times":4');
+    expect(calls[0].url).toContain("startDate=2026-10-01");
+    expect(calls[0].url).toContain("endDate=2026-10-19");
+  });
+
+  it("get_metric_trend returns the chart-friendly series", async () => {
+    wire();
+    stubFetch({
+      "/stats/metric-trend": {
+        data: {
+          category: "measurement",
+          metric: "weight",
+          unit: "kg",
+          points: [{ date: "2026-10-18", value: 75.2 }, { date: "2026-10-19", value: 74.8 }],
+          delta: -0.4,
+          startValue: 75.2,
+          endValue: 74.8,
+        },
+      },
+    });
+    const out = await handlers.get("get_metric_trend")!({ category: "measurement", metric: "weight", from: "2026-10-01", to: "2026-10-19" });
+    const text = out.content[0].text;
+    expect(text).toContain('"category":"measurement"');
+    expect(text).toContain('"delta":-0.4');
+    expect(text).toContain('"endValue":74.8');
+    expect(calls[0].url).toContain("category=measurement");
+  });
 });
 
 describe("strength stats", () => {
