@@ -397,6 +397,8 @@ export const GetExerciseInput = z.object({
 
 export const ListWorkoutPlansInput = z.object({
   limit: z.number().int().min(1).max(50).optional(),
+  /** `all` (default) includes templates a training plan generated for itself. */
+  origin: z.enum(["standalone", "plan_template", "all"]).optional(),
 });
 
 export const GetWorkoutPlanInput = z.object({
