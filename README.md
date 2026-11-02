@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/rafafau/fitaily-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/rafafau/fitaily-mcp/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D24-brightgreen.svg)](package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D26-brightgreen.svg)](package.json)
 
 Remote [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the
 Fitaily nutrition, training and progress API as **66 tools** over Streamable HTTP.
@@ -38,7 +38,7 @@ Fitaily nutrition, training and progress API as **66 tools** over Streamable HTT
 
 | Requirement     | Notes                                                         |
 | --------------- | ------------------------------------------------------------- |
-| Node.js 24+     | matches the Docker image and CI                               |
+| Node.js 26+     | matches the Docker image and CI                               |
 | pnpm 10+        | `corepack enable` is enough                                   |
 | Fitaily backend | must expose `/api/oauth/*` and accept the shared `JWT_SECRET` |
 | OAuth client    | any MCP client that supports remote HTTP + OAuth discovery    |
