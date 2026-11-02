@@ -1,2 +1,7 @@
+# pnpm blocks postinstall scripts by default. esbuild (used by tsx/vitest)
+# needs its install script to place the platform binary.
+# `onlyBuiltDependencies` is the pnpm 10 key; `allowBuilds` is the newer map form.
+onlyBuiltDependencies:
+  - esbuild
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true

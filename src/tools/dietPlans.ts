@@ -129,9 +129,7 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
         search: input.search,
       });
       const plans: DietPlan[] = res?.plans ?? res?.data ?? (Array.isArray(res) ? res : []);
-      const filtered = input.activeOnly
-        ? (plans as DietPlan[]).filter((p) => p.isActive)
-        : (plans as DietPlan[]);
+      const filtered = input.activeOnly ? (plans as DietPlan[]).filter((p) => p.isActive) : (plans as DietPlan[]);
       return {
         content: [
           {

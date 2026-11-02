@@ -42,7 +42,11 @@ export async function fitailySend<T>(
   return (json?.data ?? json) as T;
 }
 /** Thin authenticated fetch to the existing backend. No caching, no DB. */
-export async function fitailyGet<T>(accessToken: string, path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+export async function fitailyGet<T>(
+  accessToken: string,
+  path: string,
+  params?: Record<string, string | number | undefined>,
+): Promise<T> {
   const json = await fitailyGetRaw<any>(accessToken, path, params);
   return (json?.data ?? json) as T;
 }

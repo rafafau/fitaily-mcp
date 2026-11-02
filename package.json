@@ -1,15 +1,49 @@
 {
   "name": "fitaily-mcp",
-  "version": "0.1.0",
-  "description": "Fitaily MCP server — read-only diet/training/progress tools over the existing Fitaily API",
+  "version": "0.2.0",
+  "description": "Remote MCP server exposing the Fitaily nutrition, training and progress API as tools",
+  "license": "Apache-2.0",
   "type": "commonjs",
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "NOTICE"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "fitaily",
+    "nutrition",
+    "fitness",
+    "oauth"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rafafau/fitaily-mcp.git"
+  },
+  "homepage": "https://github.com/rafafau/fitaily-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/rafafau/fitaily-mcp/issues"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.18.3",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
   "scripts": {
-    "dev": "tsx src/index.ts",
+    "dev": "tsx --env-file-if-exists=.env src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate:skills": "node scripts/validate-skills.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/express": "2.0.2",
@@ -17,17 +51,25 @@
     "@modelcontextprotocol/server": "2.3.1",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "zod": "^4.6.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.10.0",
+    "@types/supertest": "^7.2.1",
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.10",
+    "supertest": "^7.3.1",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.0"
   }
 }

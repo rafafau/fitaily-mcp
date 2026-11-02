@@ -1,5 +1,5 @@
 import { verify } from "jsonwebtoken";
-import { mcpResourceUrl } from "../config";
+import { mcpResourceUrl, oauthIssuer } from "../config";
 
 export interface McpAuth {
   userId: string;
@@ -15,7 +15,7 @@ export class McpAuthError extends Error {
   }
 }
 
-/** Verify the OAuth access JWT, audience and expiry. Never trusts model input. */
+/** Verify the OAuth access JWT, algorithm, audience and expiry. Never trusts model input. */
 export function verifyMcpToken(bearer: string | undefined): McpAuth {
   if (!bearer || !bearer.startsWith("Bearer ")) {
     throw new McpAuthError(401, "Missing bearer token");
@@ -23,15 +23,27 @@ export function verifyMcpToken(bearer: string | undefined): McpAuth {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new McpAuthError(500, "JWT_SECRET is not configured");
   try {
-    const decoded = verify(bearer.slice(7), secret) as any;
-    const expectedAud = mcpResourceUrl();
-    const aud = Array.isArray(decoded.aud) ? decoded.aud[0] : decoded.aud;
-    if (aud !== expectedAud) throw new McpAuthError(403, "Token audience mismatch");
+    // Pin HS256: the backend signs with HS256 and a shared secret, so accepting
+    // other algorithms (or `none`) would widen the attack surface for free.
+    const decoded = verify(bearer.slice(7), secret, { algorithms: ["HS256"] }) as any;
+    const audiences = Array.isArray(decoded.aud) ? decoded.aud : decoded.aud ? [decoded.aud] : [];
+    if (!audiences.includes(mcpResourceUrl())) {
+      throw new McpAuthError(403, "Token audience mismatch");
+    }
+    // Fitaily access tokens do not carry `iss` yet; verify it when present so a
+    // token minted by another issuer with the same secret is still rejected.
+    if (decoded.iss !== undefined && decoded.iss !== oauthIssuer()) {
+      throw new McpAuthError(403, "Token issuer mismatch");
+    }
     if (!decoded.userId) throw new McpAuthError(401, "Invalid token subject");
     return {
       userId: String(decoded.userId),
       clientId: String(decoded.client_id || "unknown"),
-      scopes: new Set(String(decoded.scope || "").split(/\s+/).filter(Boolean)),
+      scopes: new Set(
+        String(decoded.scope || "")
+          .split(/\s+/)
+          .filter(Boolean),
+      ),
     };
   } catch (err) {
     if (err instanceof McpAuthError) throw err;

@@ -41,7 +41,8 @@ function addDays(day: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function trimMeal(m: MealEntry): object {  return {
+function trimMeal(m: MealEntry): object {
+  return {
     id: m.id,
     meal: m.mealType,
     food: m.foodName,
@@ -125,7 +126,12 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
       const res = await fitailyGet<any>(accessToken, "/nutrition", params);
       const list = Array.isArray(res) ? res : res.entries || res.items || [];
       return {
-        content: [{ type: "text", text: JSON.stringify({ meals: (list as MealEntry[]).slice(0, input.limit ?? 30).map(trimMeal) }) }],
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ meals: (list as MealEntry[]).slice(0, input.limit ?? 30).map(trimMeal) }),
+          },
+        ],
       };
     },
   );
@@ -192,8 +198,7 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "update_nutrition_goals",
     {
-      description:
-        "WRITE: change daily calorie/macro goals. Confirm the new numbers with the user first.",
+      description: "WRITE: change daily calorie/macro goals. Confirm the new numbers with the user first.",
       inputSchema: UpdateNutritionGoalsInput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
@@ -233,7 +238,8 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "update_meal",
     {
-      description: "WRITE: edit a logged meal by id (from get_today_nutrition/get_meal_history). Confirm with the user first.",
+      description:
+        "WRITE: edit a logged meal by id (from get_today_nutrition/get_meal_history). Confirm with the user first.",
       inputSchema: UpdateMealInput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },

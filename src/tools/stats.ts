@@ -14,9 +14,7 @@ import {
 import { resolvePeriod } from "../utils/dates";
 
 function round(value: unknown, digits = 1): number | null {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.round(value * 10 ** digits) / 10 ** digits
-    : null;
+  return typeof value === "number" && Number.isFinite(value) ? Math.round(value * 10 ** digits) / 10 ** digits : null;
 }
 
 /**
@@ -137,15 +135,9 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
         fitailyGet<any>(accessToken, "/goals/progress"),
         fitailyGet<any>(accessToken, "/goals"),
       ]);
-      const progressList: any[] = Array.isArray(progressRes)
-        ? progressRes
-        : (progressRes?.goals ?? []);
-      const goalList: any[] = Array.isArray(goalsRes)
-        ? goalsRes
-        : (goalsRes?.goals ?? goalsRes?.items ?? []);
-      const byId = new Map<string, any>(
-        goalList.map((g) => [String(g.id), g]),
-      );
+      const progressList: any[] = Array.isArray(progressRes) ? progressRes : (progressRes?.goals ?? []);
+      const goalList: any[] = Array.isArray(goalsRes) ? goalsRes : (goalsRes?.goals ?? goalsRes?.items ?? []);
+      const byId = new Map<string, any>(goalList.map((g) => [String(g.id), g]));
 
       const goals = progressList.map((p) => {
         const goal = byId.get(String(p.goalId)) ?? {};

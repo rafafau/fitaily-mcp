@@ -1,10 +1,22 @@
-import express from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import helmet from "helmet";
 import cors from "cors";
+import { rateLimit } from "express-rate-limit";
 import { McpServer } from "@modelcontextprotocol/server";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
-import { mcpResourceUrl, oauthIssuer, port } from "./config";
-import { McpAuthError, verifyMcpToken } from "./auth/verify";
+import {
+  SERVER_NAME,
+  SERVER_VERSION,
+  accessLogEnabled,
+  bodyLimit,
+  corsOrigin,
+  mcpResourceUrl,
+  oauthIssuer,
+  rateLimitMax,
+  rateLimitWindowMs,
+  trustProxy,
+} from "./config";
+import { McpAuthError, verifyMcpToken, type McpAuth } from "./auth/verify";
 import { registerNutritionTools } from "./tools/nutrition";
 import { registerFoodTools } from "./tools/foods";
 import { registerWaterTools } from "./tools/water";
@@ -18,41 +30,53 @@ import { registerStrengthStatsTools } from "./tools/strengthStats";
 import { registerPantryTools } from "./tools/pantry";
 import { registerExerciseTools } from "./tools/exercises";
 
-const app = express();
-app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: "1mb" }));
+type AuthedRequest = Request & { mcpAuth?: McpAuth; accessToken?: string };
 
-// Minimal access log (method/path/status only — never tokens or bodies).
-// The MCP SDK gives no request log; without this, client discovery failures
-// are invisible (lesson from the Claude DCR failure, 2026-10-16).
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on("finish", () => {
-    console.log(`${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
+const app = express();
+app.disable("x-powered-by");
+app.set("trust proxy", trustProxy());
+app.use(helmet());
+app.use(cors({ origin: corsOrigin() }));
+
+if (accessLogEnabled()) {
+  // Minimal access log (method/path/status only — never tokens or bodies).
+  // The MCP SDK gives no request log; without this, client discovery failures
+  // are invisible (lesson from the Claude DCR failure, 2026-10-16).
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on("finish", () => {
+      console.log(`${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
+    });
+    next();
   });
-  next();
-});
+}
 
 app.get("/health", (_req, res) => {
-  res.json({ success: true, service: "fitaily-mcp", timestamp: new Date().toISOString() });
+  res.json({ success: true, service: SERVER_NAME, version: SERVER_VERSION, timestamp: new Date().toISOString() });
 });
 
-// RFC 9728 Protected Resource Metadata — tells ChatGPT/Claude where the AS is.
-app.get("/.well-known/oauth-protected-resource", (_req, res) => {
+const SCOPES = [
+  "nutrition:read",
+  "training:read",
+  "progress:read",
+  "nutrition:write",
+  "training:write",
+  "progress:write",
+];
+
+/** RFC 9728 Protected Resource Metadata — tells ChatGPT/Claude where the AS is. */
+function protectedResourceMetadata(_req: Request, res: Response): void {
   res.json({
     resource: mcpResourceUrl(),
     authorization_servers: [oauthIssuer()],
-    scopes_supported: [
-      "nutrition:read",
-      "training:read",
-      "progress:read",
-      "nutrition:write",
-      "training:write",
-      "progress:write",
-    ],
+    bearer_methods_supported: ["header"],
+    scopes_supported: SCOPES,
   });
-});
+}
+
+app.get("/.well-known/oauth-protected-resource", protectedResourceMetadata);
+// RFC 9728 path-suffixed form for a resource that lives under `/mcp`.
+app.get("/.well-known/oauth-protected-resource/mcp", protectedResourceMetadata);
 
 // RFC 8414 Authorization Server Metadata, served directly (200, no redirect)
 // for clients that probe the resource server first instead of following the
@@ -69,31 +93,50 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => {
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
-    scopes_supported: [
-      "nutrition:read",
-      "training:read",
-      "progress:read",
-      "nutrition:write",
-      "training:write",
-      "progress:write",
-    ],
+    scopes_supported: SCOPES,
     token_endpoint_auth_methods_supported: ["none"],
   });
 });
 
-// Stateless Streamable HTTP: auth first, then one server+transport per request.
-app.post("/mcp", async (req, res) => {
-  let auth;
+/** Absolute URL clients can fetch to discover the AS (RFC 9728 §5.1). */
+function resourceMetadataUrl(req: Request): string {
+  const origin = `${req.protocol}://${req.get("host")}`;
+  return new URL("/.well-known/oauth-protected-resource", origin).toString();
+}
+
+function authenticate(req: Request, res: Response, next: NextFunction): void {
   try {
-    auth = verifyMcpToken(req.headers.authorization);
+    const authed = req as AuthedRequest;
+    authed.mcpAuth = verifyMcpToken(req.headers.authorization);
+    authed.accessToken = req.headers.authorization!.slice(7);
+    next();
   } catch (err) {
     const status = err instanceof McpAuthError ? err.status : 401;
-    res.status(status).json({ error: err instanceof Error ? err.message : "Unauthorized" });
+    const message = err instanceof Error ? err.message : "Unauthorized";
+    res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${resourceMetadataUrl(req)}"`);
+    res.status(status).json({ error: message });
+  }
+}
+
+const mcpLimiter = rateLimit({
+  windowMs: rateLimitWindowMs(),
+  limit: rateLimitMax(),
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many requests" },
+});
+
+// Stateless Streamable HTTP: rate limit → auth → parse body → one server+transport per request.
+// Auth runs before JSON parsing so unauthenticated clients cannot make the
+// process buffer a megabyte of body per request.
+app.post("/mcp", mcpLimiter, authenticate, express.json({ limit: bodyLimit() }), async (req, res) => {
+  const { mcpAuth: auth, accessToken } = req as AuthedRequest;
+  if (!auth || !accessToken) {
+    res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  const accessToken = req.headers.authorization!.slice(7);
   try {
-    const server = new McpServer({ name: "fitaily", version: "0.2.0" }, { capabilities: { tools: {} } });
+    const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { capabilities: { tools: {} } });
     registerNutritionTools(server, auth, accessToken);
     registerFoodTools(server, auth, accessToken);
     registerWaterTools(server, auth, accessToken);
@@ -109,14 +152,32 @@ app.post("/mcp", async (req, res) => {
     const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
-  } catch {
+  } catch (err) {
+    console.error("MCP request failed:", err instanceof Error ? err.message : err);
     if (!res.headersSent) res.status(500).json({ error: "MCP request failed" });
   }
 });
 
 // Method-not-allowed hint for GET /mcp probes.
 app.get("/mcp", (_req, res) => {
+  res.setHeader("Allow", "POST");
   res.status(405).json({ error: "Use POST /mcp with Streamable HTTP" });
+});
+
+// Body-parser errors (malformed JSON, oversized payload) must stay JSON so
+// clients do not have to parse Express' HTML error page.
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = Number(err?.status ?? err?.statusCode ?? 500);
+  if (status === 413) {
+    res.status(413).json({ error: "Request body too large" });
+    return;
+  }
+  if (status >= 400 && status < 500) {
+    res.status(400).json({ error: "Malformed request body" });
+    return;
+  }
+  console.error("Unhandled error:", err instanceof Error ? err.message : err);
+  res.status(500).json({ error: "Internal server error" });
 });
 
 export default app;

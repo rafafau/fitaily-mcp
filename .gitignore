@@ -3,11 +3,12 @@ node_modules/
 
 # Build output
 dist/
+*.tsbuildinfo
 
 # Environment (real secrets — never commit; .env.example stays tracked)
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
 
 # Logs
 logs/

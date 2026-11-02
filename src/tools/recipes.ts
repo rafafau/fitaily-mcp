@@ -44,9 +44,7 @@ interface RawRecipe {
 
 function tagLabels(r: RawRecipe): string[] {
   return (r.tags || [])
-    .map((t) =>
-      typeof t === "string" ? t : (t.label ?? t.name ?? t.slug ?? null),
-    )
+    .map((t) => (typeof t === "string" ? t : (t.label ?? t.name ?? t.slug ?? null)))
     .filter((t): t is string => Boolean(t));
 }
 
@@ -126,11 +124,7 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
     },
     async (input) => {
       requireScope(auth, "nutrition:read");
-      const res = await fitailyGet<any>(
-        accessToken,
-        "/recipes/discovery",
-        input.date ? { date: input.date } : {},
-      );
+      const res = await fitailyGet<any>(accessToken, "/recipes/discovery", input.date ? { date: input.date } : {});
       const sections = res.sections || (Array.isArray(res) ? res : []);
       const limit = input.limit ?? 6;
       const out: any[] = [];
@@ -262,10 +256,7 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
     },
     async (input) => {
       requireScope(auth, "nutrition:read");
-      const r = await fitailyGet<RawRecipe>(
-        accessToken,
-        `/recipes/public/${encodeURIComponent(input.slug)}`,
-      );
+      const r = await fitailyGet<RawRecipe>(accessToken, `/recipes/public/${encodeURIComponent(input.slug)}`);
       return { content: [{ type: "text", text: JSON.stringify(fullRecipe(r)) }] };
     },
   );
@@ -300,12 +291,8 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       }).catch(() => null);
 
       const remainingCalories =
-        input.maxCalories ??
-        (typeof summary?.remaining?.calories === "number"
-          ? summary.remaining.calories
-          : null);
-      const remainingProtein =
-        typeof summary?.remaining?.protein === "number" ? summary.remaining.protein : null;
+        input.maxCalories ?? (typeof summary?.remaining?.calories === "number" ? summary.remaining.calories : null);
+      const remainingProtein = typeof summary?.remaining?.protein === "number" ? summary.remaining.protein : null;
 
       // Cap at what is actually left in the day; when the user already knows the
       // per-meal budget they pass maxCalories explicitly.

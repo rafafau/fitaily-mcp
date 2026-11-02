@@ -50,7 +50,9 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
         timestamp: input.date,
       });
       return {
-        content: [{ type: "text", text: JSON.stringify({ id: (created as any).id ?? null, amount_ml: input.amountMl }) }],
+        content: [
+          { type: "text", text: JSON.stringify({ id: (created as any).id ?? null, amount_ml: input.amountMl }) },
+        ],
       };
     },
   );

@@ -11,11 +11,7 @@ import {
 } from "../schemas/common";
 
 /** Fridge inventory + shopping list — the "what can I cook / what to buy" loop. */
-export function registerPantryTools(
-  server: McpServer,
-  auth: McpAuth,
-  accessToken: string,
-): void {
+export function registerPantryTools(server: McpServer, auth: McpAuth, accessToken: string): void {
   server.registerTool(
     "get_fridge",
     {
@@ -104,8 +100,7 @@ export function registerPantryTools(
   server.registerTool(
     "get_shopping_list",
     {
-      description:
-        "The current shopping list with item names, quantities, categories and completion state.",
+      description: "The current shopping list with item names, quantities, categories and completion state.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true },
     },
@@ -164,8 +159,7 @@ export function registerPantryTools(
   server.registerTool(
     "update_shopping_item",
     {
-      description:
-        "WRITE: tick an item off (isCompleted=true) or edit its name/quantity. Confirm with the user first.",
+      description: "WRITE: tick an item off (isCompleted=true) or edit its name/quantity. Confirm with the user first.",
       inputSchema: UpdateShoppingItemInput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     },

@@ -59,8 +59,14 @@ export const BarcodeInput = z.object({
 });
 
 export const WaterHistoryInput = z.object({
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
   limit: z.number().int().min(1).max(50).optional(),
 });
 
@@ -74,8 +80,14 @@ export const DeleteWaterInput = z.object({
 });
 
 export const TrainingHistoryInput = z.object({
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
   limit: z.number().int().min(1).max(20).optional(),
 });
 
@@ -89,13 +101,25 @@ export const LogActivityInput = z.object({
 });
 
 export const ProgressSummaryInput = z.object({
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
 });
 
 export const MeasurementHistoryInput = z.object({
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
   limit: z.number().int().min(1).max(100).optional(),
 });
 
@@ -112,7 +136,10 @@ export const AddGoalInput = z.object({
   name: z.string().min(1).max(120),
   targetValue: z.number(),
   unit: z.string().max(20).optional(),
-  targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+  targetDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
 });
 
 export const UpdateGoalInput = z.object({
@@ -177,9 +204,7 @@ export const PublicRecipesInput = z.object({
   maxFat: z.number().min(0).max(300).optional(),
   maxTotalTimeMin: z.number().int().min(1).max(1440).optional(),
   minRatingCount: z.number().int().min(0).max(1000).optional(),
-  sort: z
-    .enum(["newest", "rating", "time_asc", "calories_asc", "calories_desc", "protein_desc"])
-    .optional(),
+  sort: z.enum(["newest", "rating", "time_asc", "calories_asc", "calories_desc", "protein_desc"]).optional(),
   page: z.number().int().min(1).max(100).optional(),
   limit: z.number().int().min(1).max(50).optional(),
 });
@@ -233,9 +258,7 @@ export const GetDietPlanInput = z.object({
 });
 
 export const GenerateDietPlanInput = z.object({
-  template: z
-    .enum(["balanced", "highprotein", "lowcarb", "keto", "vegan", "vegetarian"])
-    .optional(),
+  template: z.enum(["balanced", "highprotein", "lowcarb", "keto", "vegan", "vegetarian"]).optional(),
   calorieTarget: z.number().int().min(1000).max(6000).optional(),
   proteinTarget: z.number().min(0).max(500).optional(),
   carbsTarget: z.number().min(0).max(800).optional(),
@@ -265,8 +288,14 @@ export const ExtendDietPlanInput = z.object({
 // ---------------------------------------------------------------------------
 
 const PeriodInput = z.object({
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
 });
 
 export const NutritionStatsInput = PeriodInput;
@@ -283,8 +312,14 @@ export const NutritionHistoryInput = z.object({
 export const MetricTrendInput = z.object({
   category: z.enum(["measurement", "nutrition", "workout", "hydration"]),
   metric: z.string().min(1).max(40).optional(),
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd").optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd")
+    .optional(),
 });
 
 export const ExerciseHistoryInput = z.object({

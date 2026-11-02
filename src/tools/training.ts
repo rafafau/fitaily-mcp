@@ -70,8 +70,8 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
         fitailyGet<any>(accessToken, "/activity", params).catch(() => ({ entries: [] })),
         fitailyGet<any>(accessToken, "/workouts", {}).catch(() => []),
       ]);
-      const activityList = Array.isArray(activities) ? activities : (activities.entries || activities.activities || []);
-      const workoutList = Array.isArray(workouts) ? workouts : (workouts.workouts || workouts.sessions || []);
+      const activityList = Array.isArray(activities) ? activities : activities.entries || activities.activities || [];
+      const workoutList = Array.isArray(workouts) ? workouts : workouts.workouts || workouts.sessions || [];
       return {
         content: [
           {
@@ -94,7 +94,9 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
                 status: w.status,
                 exercises: (w.exercises || []).map((e: any) => ({
                   name: e.exercise?.name || e.name,
-                  sets: (e.sets || []).filter((s: any) => s.isCompleted).map((s: any) => ({ reps: s.reps, weight_kg: s.weight ?? null })),
+                  sets: (e.sets || [])
+                    .filter((s: any) => s.isCompleted)
+                    .map((s: any) => ({ reps: s.reps, weight_kg: s.weight ?? null })),
                 })),
               })),
             }),
@@ -125,8 +127,17 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
           {
             type: "text",
             text: JSON.stringify({
-              multisport: norm(multi).map((p: any) => ({ id: p.id, name: p.name, description: p.description ?? null })),
-              strength_templates: norm(strength).map((p: any) => ({ id: p.id, name: p.name, origin: p.origin ?? null, description: p.description ?? null })),
+              multisport: norm(multi)
+                .slice(0, input.limit ?? 20)
+                .map((p: any) => ({ id: p.id, name: p.name, description: p.description ?? null })),
+              strength_templates: norm(strength)
+                .slice(0, input.limit ?? 20)
+                .map((p: any) => ({
+                  id: p.id,
+                  name: p.name,
+                  origin: p.origin ?? null,
+                  description: p.description ?? null,
+                })),
             }),
           },
         ],
@@ -207,7 +218,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
     "create_workout_plan",
     {
       description:
-        "WRITE: create a workout template. Confirm the whole template with the user first. exerciseId values must come from search_exercises — never invent them. reps is a free string (e.g. \"8-12\").",
+        'WRITE: create a workout template. Confirm the whole template with the user first. exerciseId values must come from search_exercises — never invent them. reps is a free string (e.g. "8-12").',
       inputSchema: CreateWorkoutPlanInput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },

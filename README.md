@@ -1,86 +1,311 @@
-# Fitaily MCP server
+# Fitaily MCP
 
-Remote MCP over Streamable HTTP. No business logic, no DB access —
-every tool calls the existing Fitaily REST API with the user's OAuth token.
-Read tools are free on every account; writes require the `*:write` scope and
-must be confirmed by the user in the chat.
+[![CI](https://github.com/rafafau/fitaily-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/rafafau/fitaily-mcp/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D24-brightgreen.svg)](package.json)
 
-## Env
+Remote [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the
+Fitaily nutrition, training and progress API as **66 tools** over Streamable HTTP.
 
-| Var | Default | Notes |
-|---|---|---|
-| `PORT` | `3091` | container port |
-| `FITAILY_API_URL` | `http://backend:3001/api` | existing backend |
-| `MCP_RESOURCE_URL` | `https://mcp.fitaily.com/mcp` | must match OAuth `aud` |
-| `OAUTH_ISSUER` | `https://fitaily.com` | backend OAuth AS |
-| `JWT_SECRET` | — | same value as backend (verifies OAuth access JWTs) |
+> **Companion server.** Fitaily MCP has no database and no business logic of its own: every
+> tool calls the Fitaily REST API with the user's OAuth token. You need a running Fitaily
+> backend, the same `JWT_SECRET`, and an OAuth client (ChatGPT, Claude, Cursor, OpenCode…).
+> It is not a standalone fitness tracker.
 
-## Run
+---
+
+## What it is
+
+- **Stateless.** One `McpServer` + transport per request; no sessions, no cache, no storage.
+- **OAuth 2.1 (PKCE).** The Fitaily backend is the authorization server; this process only
+  verifies HS256 access tokens (audience, scopes, expiry).
+- **Scoped access.** Every tool checks a `*:read` or `*:write` scope before calling the
+  backend; writes are annotated as `write`/`destructive` so clients can ask first.
+- **Thin.** Backend failures are classified as unauthorized (`401`/`403`) or
+  unreachable/error (`502`) and returned as short tool errors; response bodies are never
+  forwarded to the model.
+
+## What it is not
+
+- Not a medical device and not medical advice. It reports what the user logged.
+- Not a data store: nothing is persisted, cached or written to disk.
+- Not a replacement for the Fitaily REST API — the API remains the source of truth.
+
+## Requirements
+
+| Requirement     | Notes                                                         |
+| --------------- | ------------------------------------------------------------- |
+| Node.js 24+     | matches the Docker image and CI                               |
+| pnpm 10+        | `corepack enable` is enough                                   |
+| Fitaily backend | must expose `/api/oauth/*` and accept the shared `JWT_SECRET` |
+| OAuth client    | any MCP client that supports remote HTTP + OAuth discovery    |
+
+## Quickstart
 
 ```bash
+git clone https://github.com/rafafau/fitaily-mcp.git
+cd fitaily-mcp
+corepack enable
 pnpm install
-pnpm dev      # http://localhost:3091/mcp + /health
-pnpm test
+cp .env.example .env      # set JWT_SECRET, FITAILY_API_URL and MCP_RESOURCE_URL
+pnpm dev
 ```
 
-## Tools (66)
+```bash
+curl -s http://localhost:3091/health
+# {"success":true,"service":"fitaily","version":"0.2.0","timestamp":"…"}
+```
 
-**Nutrition** — `get_today_nutrition`, `get_meal_history`, `get_nutrition_goals`,
-`update_nutrition_goals`, `suggest_meal`, `add_meal`, `update_meal`, `delete_meal`
+To exercise `/mcp` locally you need a token minted for this resource. Load the same
+`.env` in your shell and create a short-lived development token:
 
-**Foods** — `search_foods`, `get_food_by_barcode`
+```bash
+set -a; . ./.env; set +a
+TOKEN=$(node -e "console.log(require('jsonwebtoken').sign(
+  { userId: 'dev', scope: 'nutrition:read training:read progress:read', aud: process.env.MCP_RESOURCE_URL },
+  process.env.JWT_SECRET,
+  { expiresIn: '15m', algorithm: 'HS256' }
+))")
 
-**Water** — `get_water_history`, `log_water`, `delete_water_entry`
+curl -s http://localhost:3091/mcp \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+        "protocolVersion":"2025-06-18","capabilities":{},
+        "clientInfo":{"name":"curl","version":"0"}}}'
+```
 
-**Recipes** — `get_recipe_suggestions`, `get_my_recipes`, `search_public_recipes`
-(filters: search/tags/calories/protein/carbs/fat/time/sort/page),
-`get_recipe_tags`, `get_public_recipe`, `get_recipe`,
-`find_recipes_for_remaining_macros`, `get_favorite_recipes`, `favorite_recipe`,
-`rate_recipe`, `create_recipe`, `update_recipe`, `delete_recipe`
+## Connect a client
 
-**Diet plans** — `get_diet_plans`, `get_diet_plan`, `generate_diet_plan`,
-`activate_diet_plan`, `extend_diet_plan`
+The public endpoint is `https://mcp.fitaily.com/mcp`; locally it is
+`http://localhost:3091/mcp`. Authentication is discovered automatically through
+`/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`.
 
-**Training** — `get_training_history`, `get_training_plan`, `log_activity`,
-`get_workout_plans`, `get_workout_plan`, `create_workout_plan`,
-`update_workout_plan`, `delete_workout_plan`
+**Claude Code**
 
-**Exercise catalog** — `search_exercises`, `get_exercise`
+```bash
+claude mcp add --transport http fitaily https://mcp.fitaily.com/mcp
+```
 
-**Strength stats** — `get_personal_records`, `get_exercise_history`,
-`get_muscle_activation`
+**Cursor / VS Code / generic JSON config**
 
-**Progress** — `get_progress_summary`, `get_measurement_history`, `get_goals`,
-`get_goal_progress`, `get_nutrition_stats`, `get_activity_stats`,
-`get_measurement_stats`, `query_nutrition_history`, `get_metric_trend`,
-`get_forecast` (TimesFM), `add_measurement`, `add_goal`, `update_goal`
+```json
+{
+  "mcpServers": {
+    "fitaily": { "type": "http", "url": "https://mcp.fitaily.com/mcp" }
+  }
+}
+```
 
-**Profile** — `get_profile`, `get_coach_plan`, `get_dashboard_summary`
+**OpenCode**
 
-**Fridge / shopping list** — `get_fridge`, `add_fridge_item`,
-`delete_fridge_item`, `get_shopping_list`, `add_shopping_item`,
-`update_shopping_item`
+```json
+{
+  "mcp": {
+    "fitaily": { "type": "remote", "url": "https://mcp.fitaily.com/mcp", "enabled": true }
+  }
+}
+```
 
-Every read tool carries `readOnlyHint: true`; destructive writes carry
-`destructiveHint: true`. Input schemas live in `src/schemas/common.ts`.
+**Claude Desktop** (no native remote transport — bridge it):
 
-## Consumers
+```json
+{
+  "mcpServers": {
+    "fitaily": { "command": "npx", "args": ["-y", "mcp-remote", "https://mcp.fitaily.com/mcp"] }
+  }
+}
+```
 
-- External assistants (ChatGPT, Claude, OpenCode, Cursor…) over OAuth.
-- The in-app Fitaily coach: the backend mints a short-lived read-only token
-  (`nutrition:read training:read progress:read`) and calls `tools/call` over
-  the private Docker network. The chat exposes a curated read-only subset
-  (`CHAT_TOOL_ALLOWLIST` in the backend) — writes stay external-only.
+**ChatGPT** — Settings → Connectors → add a custom connector with the endpoint URL, then
+complete the OAuth prompt.
 
-Backend contract notes:
+During OAuth the client registers itself dynamically, opens the Fitaily consent screen and
+receives an access token whose `aud` must equal `MCP_RESOURCE_URL`. A mismatch is rejected
+with `403 Token audience mismatch`.
 
-- `GET /nutrition` uses a half-open range (`[gte, lt)`) — the tool bumps
-  `endDate` by one day; activity/measurement ranges are inclusive.
-- Recipe nutrition filters are computed from ingredients, so the backend scans
-  the catalog before paginating (do not assume a Prisma `where`).
+## Configuration
 
-## Infra
+| Variable               | Required         | Default                       | Purpose                                                                                      |
+| ---------------------- | ---------------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`           | ✅               | —                             | Verifies HS256 access tokens. Must equal the backend value. `/mcp` returns `500` without it. |
+| `MCP_RESOURCE_URL`     | ✅ in production | `https://mcp.fitaily.com/mcp` | Public endpoint URL **and** expected token audience. No trailing slash.                      |
+| `FITAILY_API_URL`      | ✅               | `http://localhost:3001/api`   | Base URL of the REST API, including `/api`.                                                  |
+| `OAUTH_ISSUER`         | ✅               | `https://fitaily.com`         | Authorization server issuer, used in discovery documents and the optional `iss` check.       |
+| `PORT`                 |                  | `3091`                        | HTTP port.                                                                                   |
+| `CORS_ORIGIN`          |                  | `*`                           | `*` or a comma-separated origin allowlist.                                                   |
+| `TRUST_PROXY`          |                  | `1`                           | Reverse-proxy hops for client IP + `req.protocol` (one proxy/tunnel hop by default). Set `false` when directly exposed. |
+| `MCP_BODY_LIMIT`       |                  | `1mb`                         | Max JSON body for `POST /mcp`.                                                               |
+| `RATE_LIMIT_WINDOW_MS` |                  | `60000`                       | Rate-limit window per IP.                                                                    |
+| `RATE_LIMIT_MAX`       |                  | `300`                         | Requests per window per IP on `/mcp`.                                                        |
+| `ACCESS_LOG`           |                  | `true`                        | `false` disables the method/path/status access log.                                          |
 
-Separate container on the Pi (`fitaily-shared` network), Cloudflare Tunnel
-hostname `mcp.fitaily.com` → `fitaily-mcp:3091`. Tunnel path routing for
-`fitaily.com` is untouched.
+## Authentication and scopes
+
+Tokens are HS256 JWTs with `userId`, `client_id`, `scope`, `aud`, `jti` and a 15-minute TTL.
+The server pins `HS256`, checks `aud`, and verifies `iss` when the claim is present.
+
+| Scope             | Unlocks                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `nutrition:read`  | meals, foods, water, recipes, diet plans, pantry, profile                                                                |
+| `nutrition:write` | log/edit/delete meals and water, change goals, recipe CRUD, diet-plan generate/activate/extend, fridge and shopping list |
+| `training:read`   | activities, plans, workout templates, exercise catalog, strength stats                                                   |
+| `training:write`  | `log_activity`, workout template create/update/delete                                                                    |
+| `progress:read`   | measurements, goals, aggregates, trends, forecasts                                                                       |
+| `progress:write`  | add/update measurements and goals                                                                                        |
+
+A `401` response carries `WWW-Authenticate: Bearer resource_metadata="…"` so clients can
+find the authorization server. Missing scopes return `403 Missing scope: <scope>`.
+
+**Write confirmation is a client responsibility.** The server marks mutating tools with
+`readOnlyHint: false` and deletions with `destructiveHint: true`, but it cannot block a call
+the model already decided to make. The bundled [skills](skills/) encode the
+“show a summary → wait for yes → call the tool” workflow.
+
+## Tools
+
+Full reference with scopes and read/write/destructive labels: **[docs/tools.md](docs/tools.md)**.
+
+| Group             | Tools | Highlights                                                             |
+| ----------------- | ----- | ---------------------------------------------------------------------- |
+| Nutrition         | 8     | today's totals, meal history, goals, meal suggestions, meal CRUD       |
+| Foods             | 2     | catalog search, barcode lookup                                         |
+| Water             | 3     | history, log, delete                                                   |
+| Recipes           | 13    | public catalog, tags, favorites, ratings, CRUD, “fit remaining macros” |
+| Diet plans        | 5     | list, detail, generate, activate, extend                               |
+| Training          | 8     | history, plans, cardio logging, workout template CRUD                  |
+| Exercise catalog  | 2     | search, detail                                                         |
+| Strength stats    | 3     | personal records, exercise history, muscle activation                  |
+| Progress          | 6     | summary, measurements, goals                                           |
+| Stats             | 7     | nutrition/activity/measurement aggregates, history, trend, forecast    |
+| Profile           | 3     | profile, coach plan, dashboard summary                                 |
+| Fridge & shopping | 6     | fridge items, shopping list                                            |
+
+## Architecture
+
+```
+client ──OAuth token──▶ POST /mcp
+                         ├─ rate limit (per IP)
+                         ├─ verify JWT (HS256, aud, scopes)
+                         ├─ parse JSON (max 1 MB)
+                         ├─ new McpServer + tools bound to the token
+                         └─ fetch FITAILY_API_URL/... (10–15 s timeout)
+```
+
+- One server/transport per request: safe to run multiple replicas, no sticky sessions.
+- No database, no queue, no disk writes; rate-limit counters live in process memory.
+- The backend body is never returned to the model — only a stable status and a generic
+  message, so an internal error cannot leak data or HTML.
+- Backend quirks worth knowing before changing tools: [docs/backend-contract.md](docs/backend-contract.md).
+
+## Development
+
+```bash
+pnpm dev             # tsx dev server on :3091 (loads .env when present)
+pnpm test            # vitest (unit + HTTP integration)
+pnpm typecheck       # src + tests
+pnpm lint            # eslint 10 + typescript-eslint
+pnpm format          # prettier
+pnpm build           # tsc → dist/
+pnpm validate:skills # SKILL.md frontmatter + tool names
+```
+
+```
+src/
+  api/         fetch wrapper for the Fitaily API
+  auth/        JWT verification + scope checks
+  schemas/     zod input schemas shared by all tools
+  tools/       one file per domain (66 tools)
+  config.ts    env parsing
+  server.ts    express app, OAuth discovery, /mcp
+tests/         vitest + supertest
+docs/          tool reference and backend contract
+skills/        agent skills that teach clients how to use the tools
+```
+
+**Adding or renaming a tool**
+
+1. Add the zod schema in `src/schemas/common.ts`.
+2. Register it in `src/tools/<domain>.ts` with a description that says when to call it,
+   `annotations`, and the matching `requireScope`.
+3. Add the row to `docs/tools.md` (the docs test fails otherwise).
+4. Add or update a test in `tests/tools.test.ts` and, if it is a new workflow, a skill.
+5. Run `pnpm lint && pnpm typecheck && pnpm test`.
+
+## Self-hosting
+
+```bash
+docker build -t fitaily-mcp .
+docker run --rm -p 3091:3091 --env-file .env fitaily-mcp
+```
+
+`docker-compose.yml` next to the backend:
+
+```yaml
+services:
+  mcp:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - "3091:3091"
+    # Same private network as the backend; FITAILY_API_URL can then use
+    # http://backend:3001/api instead of a public hostname.
+    networks:
+      - fitaily
+
+networks:
+  fitaily:
+    external: true
+```
+
+Put a TLS-terminating reverse proxy or tunnel in front of it and keep
+`TRUST_PROXY=1`; the container runs as the unprivileged `node` user and exposes a
+`HEALTHCHECK` against `/health`.
+
+## Privacy and data handling
+
+- The server stores nothing: no database, no cache, no files, no analytics.
+- Access logs contain method, path, status and duration only — never tokens or bodies.
+- Health data (meals, weight, workouts) passes through in memory for the duration of a
+  request. Fitaily's own privacy policy governs the backend data.
+- Rate-limit counters are in memory and disappear on restart.
+
+## Security
+
+Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md). Do not open a
+public issue for a suspected token leak or auth bypass.
+
+Operational notes:
+
+- `JWT_SECRET` is shared with the backend. Rotating it invalidates every outstanding token.
+- Tokens are bearer credentials: never log them, never put them in a URL.
+- Keep `MCP_RESOURCE_URL` exact; a trailing slash or wrong scheme breaks the audience check.
+- The default rate limit is intentionally generous (300 req/min/IP). Tighten it for public
+  deployments if your clients make many parallel tool calls.
+
+## Known limitations
+
+- Tool results are text-only JSON (`content[].text`); there is no `outputSchema` /
+  `structuredContent` yet.
+- No streaming progress notifications and no long-running jobs — every call is a single
+  backend round-trip.
+- The tool handlers still carry some `any` at the API boundary; types will be tightened
+  incrementally.
+- The repository is CommonJS today. The MCP SDK also ships ESM; switching is a separate
+  change.
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the local
+loop and the tool checklist.
+
+## License
+
+[Apache License 2.0](LICENSE) © 2026 Rafal Sipiatowski. See [NOTICE](NOTICE) for the
+attribution notice. The license includes an express patent grant; modified files must carry
+prominent change notices when redistributed.
+
+Fitaily is a trademark of its owner. This repository is an independent integration; the
+Fitaily backend and mobile apps are not part of it.

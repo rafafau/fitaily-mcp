@@ -101,9 +101,7 @@ export function registerProfileTools(server: McpServer, auth: McpAuth, accessTok
               protein_per_kg: profile.proteinPerKgBw ?? null,
               auto_calories: profile.autoCalories ?? null,
               effective_goals: profile.effectiveGoals ?? null,
-              latest_prediction: Array.isArray(profile.dailyPredictions)
-                ? (profile.dailyPredictions[0] ?? null)
-                : null,
+              latest_prediction: Array.isArray(profile.dailyPredictions) ? (profile.dailyPredictions[0] ?? null) : null,
             }),
           },
         ],

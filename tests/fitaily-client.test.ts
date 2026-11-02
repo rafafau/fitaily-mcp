@@ -7,7 +7,11 @@ describe("fitailyGet", () => {
   it("unwraps {data} and never leaks bodies on error", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true, data: { date: "2026-10-16" } }) }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: { date: "2026-10-16" } }),
+      }),
     );
     const out = await fitailyGet<any>("tok", "/nutrition/day-summary", { date: "2026-10-16" });
     expect(out).toEqual({ date: "2026-10-16" });

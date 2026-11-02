@@ -7,20 +7,14 @@ import { ExerciseHistoryInput, MuscleActivationInput } from "../schemas/common";
 import { daysAgo } from "../utils/dates";
 
 function round(value: unknown, digits = 1): number | null {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.round(value * 10 ** digits) / 10 ** digits
-    : null;
+  return typeof value === "number" && Number.isFinite(value) ? Math.round(value * 10 ** digits) / 10 ** digits : null;
 }
 
 /**
  * Strength progress: personal records, per-exercise history and muscle load.
  * The backend aggregates completed sets — the model should not re-derive them.
  */
-export function registerStrengthStatsTools(
-  server: McpServer,
-  auth: McpAuth,
-  accessToken: string,
-): void {
+export function registerStrengthStatsTools(server: McpServer, auth: McpAuth, accessToken: string): void {
   server.registerTool(
     "get_personal_records",
     {

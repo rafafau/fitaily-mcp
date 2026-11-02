@@ -24,7 +24,9 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
       const to = input.to || new Date().toISOString().slice(0, 10);
       const from = input.from || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
       const [trends, latest] = await Promise.all([
-        fitailyGet<any>(accessToken, "/measurements/trends", { startDate: from, endDate: to }).catch(() => ({ trends: [] })),
+        fitailyGet<any>(accessToken, "/measurements/trends", { startDate: from, endDate: to }).catch(() => ({
+          trends: [],
+        })),
         fitailyGet<any>(accessToken, "/measurements/latest").catch(() => null),
       ]);
       const points = trends.trends || trends || [];
@@ -35,7 +37,9 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
             text: JSON.stringify({
               from,
               to,
-              weight_kg: (Array.isArray(points) ? points : []).map((p: any) => ({ date: p.date, weight: p.weight })).filter((p: any) => p.weight != null),
+              weight_kg: (Array.isArray(points) ? points : [])
+                .map((p: any) => ({ date: p.date, weight: p.weight }))
+                .filter((p: any) => p.weight != null),
               latest_weight_kg: latest?.weight ?? null,
               latest_date: latest?.date ?? null,
             }),
@@ -122,7 +126,12 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
       requireScope(auth, "progress:write");
       const created = await fitailySend<any>(accessToken, "POST", "/measurements", input);
       return {
-        content: [{ type: "text", text: JSON.stringify({ id: (created as any).id ?? null, date: (created as any).date ?? null }) }],
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ id: (created as any).id ?? null, date: (created as any).date ?? null }),
+          },
+        ],
       };
     },
   );

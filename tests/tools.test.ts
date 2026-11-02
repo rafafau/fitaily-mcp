@@ -35,7 +35,9 @@ class FakeServer {
   }
 }
 
-function wire(scopes = "nutrition:read nutrition:write training:read training:write progress:read progress:write"): void {
+function wire(
+  scopes = "nutrition:read nutrition:write training:read training:write progress:read progress:write",
+): void {
   handlers.clear();
   const auth = verifyMcpToken(authHeader(scopes));
   const srv = new FakeServer() as unknown as McpServer;
@@ -84,8 +86,17 @@ describe("get_today_nutrition with meals", () => {
   it("merges day-summary with the item list", async () => {
     wire();
     stubFetch({
-      "/nutrition/day-summary": { date: "2026-10-16", consumed: { calories: 283 }, goals: { calories: 1751 }, remaining: { calories: 1468 } },
-      "/nutrition?": { entries: [{ id: "m1", mealType: "breakfast", foodName: "Jajka", calories: 283, protein: 21.8, carbs: 1, fat: 21.5 }] },
+      "/nutrition/day-summary": {
+        date: "2026-10-16",
+        consumed: { calories: 283 },
+        goals: { calories: 1751 },
+        remaining: { calories: 1468 },
+      },
+      "/nutrition?": {
+        entries: [
+          { id: "m1", mealType: "breakfast", foodName: "Jajka", calories: 283, protein: 21.8, carbs: 1, fat: 21.5 },
+        ],
+      },
     });
     const out = await handlers.get("get_today_nutrition")!({});
     const text = out.content[0].text;
@@ -104,11 +115,20 @@ describe("get_meal_history", () => {
   });
 });
 
-describe("meal writes", () => {  it("add_meal POSTs with clientRequestId", async () => {
+describe("meal writes", () => {
+  it("add_meal POSTs with clientRequestId", async () => {
     wire();
-    stubFetch({ "/nutrition": { id: "n1", mealType: "snack", foodName: "Skyr", calories: 100, protein: 15, carbs: 5, fat: 1 } });
+    stubFetch({
+      "/nutrition": { id: "n1", mealType: "snack", foodName: "Skyr", calories: 100, protein: 15, carbs: 5, fat: 1 },
+    });
     const out = await handlers.get("add_meal")!({
-      mealType: "snack", foodName: "Skyr", calories: 100, protein: 15, carbs: 5, fat: 1, clientRequestId: "req-1",
+      mealType: "snack",
+      foodName: "Skyr",
+      calories: 100,
+      protein: 15,
+      carbs: 5,
+      fat: 1,
+      clientRequestId: "req-1",
     });
     expect(calls[0].method).toBe("POST");
     expect(calls[0].body.clientRequestId).toBe("req-1");
@@ -137,7 +157,21 @@ describe("meal writes", () => {  it("add_meal POSTs with clientRequestId", async
 describe("foods", () => {
   it("search_foods trims to per-100g macros", async () => {
     wire();
-    stubFetch({ "/products": { products: [{ id: "p1", name: "Twaróg", brand: "B", caloriesPer100: 120, proteinPer100: 18, carbsPer100: 4, fatPer100: 2 }] } });
+    stubFetch({
+      "/products": {
+        products: [
+          {
+            id: "p1",
+            name: "Twaróg",
+            brand: "B",
+            caloriesPer100: 120,
+            proteinPer100: 18,
+            carbsPer100: 4,
+            fatPer100: 2,
+          },
+        ],
+      },
+    });
     const out = await handlers.get("search_foods")!({ query: "twaróg" });
     expect(out.content[0].text).toContain("Twaróg");
     expect(out.content[0].text).toContain("per_100g");
@@ -182,7 +216,22 @@ describe("progress", () => {
 
   it("get_goals trims to id/type/values", async () => {
     wire();
-    stubFetch({ "/goals": { goals: [{ id: "g1", type: "weight", name: "Waga", currentValue: 82, targetValue: 78, unit: "kg", isActive: true, isCompleted: false }] } });
+    stubFetch({
+      "/goals": {
+        goals: [
+          {
+            id: "g1",
+            type: "weight",
+            name: "Waga",
+            currentValue: 82,
+            targetValue: 78,
+            unit: "kg",
+            isActive: true,
+            isCompleted: false,
+          },
+        ],
+      },
+    });
     const out = await handlers.get("get_goals")!({});
     expect(out.content[0].text).toContain("Waga");
   });
@@ -193,12 +242,33 @@ describe("recipes", () => {
     wire();
     stubFetch({
       "/recipes/discovery": {
-        sections: [{
-          key: "fit", items: [
-            { id: "r1", title: "Szybka", calories: 400, proteinGrams: 30, carbsGrams: 20, fatGrams: 10, durationMinutes: 15, servings: 2 },
-            { id: "r2", title: "Wolna", calories: 400, proteinGrams: 30, carbsGrams: 20, fatGrams: 10, durationMinutes: 120, servings: 2 },
-          ],
-        }],
+        sections: [
+          {
+            key: "fit",
+            items: [
+              {
+                id: "r1",
+                title: "Szybka",
+                calories: 400,
+                proteinGrams: 30,
+                carbsGrams: 20,
+                fatGrams: 10,
+                durationMinutes: 15,
+                servings: 2,
+              },
+              {
+                id: "r2",
+                title: "Wolna",
+                calories: 400,
+                proteinGrams: 30,
+                carbsGrams: 20,
+                fatGrams: 10,
+                durationMinutes: 120,
+                servings: 2,
+              },
+            ],
+          },
+        ],
       },
     });
     const out = await handlers.get("get_recipe_suggestions")!({ maxTimeMin: 30, limit: 5 });
@@ -226,10 +296,17 @@ describe("recipes CRUD", () => {
 
   it("get_recipe returns numbered steps and ingredients", async () => {
     wire();
-    stubFetch({ "/recipes/r1": { id: "r1", name: "X", ingredients: [{ productName: "Mąka", amount: 200, unit: "g" }], steps: [{ instruction: "Wymieszaj" }] } });
+    stubFetch({
+      "/recipes/r1": {
+        id: "r1",
+        name: "X",
+        ingredients: [{ productName: "Mąka", amount: 200, unit: "g" }],
+        steps: [{ instruction: "Wymieszaj" }],
+      },
+    });
     const out = await handlers.get("get_recipe")!({ id: "r1" });
     expect(out.content[0].text).toContain("Mąka");
-    expect(out.content[0].text).toContain("\"step\":1");
+    expect(out.content[0].text).toContain('"step":1');
   });
 
   it("delete_recipe hits the id URL", async () => {
@@ -244,7 +321,13 @@ describe("recipes CRUD", () => {
 describe("exercise catalog", () => {
   it("search_exercises trims to id/name/muscle", async () => {
     wire();
-    stubFetch({ "/exercises/global": { exercises: [{ id: "e1", name: "Bench Press", category: "CHEST", muscleGroup: "Pectoralis", equipment: "Barbell" }] } });
+    stubFetch({
+      "/exercises/global": {
+        exercises: [
+          { id: "e1", name: "Bench Press", category: "CHEST", muscleGroup: "Pectoralis", equipment: "Barbell" },
+        ],
+      },
+    });
     const out = await handlers.get("search_exercises")!({ search: "bench" });
     expect(out.content[0].text).toContain("Bench Press");
     expect(out.content[0].text).toContain("Pectoralis");
@@ -254,10 +337,15 @@ describe("exercise catalog", () => {
 describe("workout plans", () => {
   it("create_workout_plan assigns orderIndex from position", async () => {
     wire();
-    stubFetch({ "/workout-plans": { id: "p1", name: "Push", exercises: [{ exerciseId: "e1", sets: 4, reps: "8-12" }] } });
+    stubFetch({
+      "/workout-plans": { id: "p1", name: "Push", exercises: [{ exerciseId: "e1", sets: 4, reps: "8-12" }] },
+    });
     const out = await handlers.get("create_workout_plan")!({
       name: "Push",
-      exercises: [{ exerciseId: "e1", sets: 4, reps: "8-12" }, { exerciseId: "e2", sets: 3 }],
+      exercises: [
+        { exerciseId: "e1", sets: 4, reps: "8-12" },
+        { exerciseId: "e2", sets: 3 },
+      ],
     });
     expect(calls[0].method).toBe("POST");
     expect(calls[0].body.exercises[0].orderIndex).toBe(0);
@@ -275,7 +363,11 @@ describe("workout plans", () => {
 
   it("get_workout_plans lists templates", async () => {
     wire();
-    stubFetch({ "/workout-plans": [{ id: "p1", name: "Push", exercises: [{ exerciseId: "e1", sets: 3, exercise: { name: "Bench" } }] }] });
+    stubFetch({
+      "/workout-plans": [
+        { id: "p1", name: "Push", exercises: [{ exerciseId: "e1", sets: 3, exercise: { name: "Bench" } }] },
+      ],
+    });
     const out = await handlers.get("get_workout_plans")!({});
     expect(out.content[0].text).toContain("Bench");
   });
@@ -289,16 +381,25 @@ describe("recipe catalog", () => {
         data: [
           {
             id: "r1",
-            name: "Kurczak", slug: "kurczak", servings: 2, totalTimeMinutes: 25,
+            name: "Kurczak",
+            slug: "kurczak",
+            servings: 2,
+            totalTimeMinutes: 25,
             nutrition: { caloriesPerServing: 380, proteinPerServing: 42, carbsPerServing: 12, fatPerServing: 14 },
-            rating: { average: 4.5, count: 2 }, tags: [{ slug: "high-protein", label: "High protein" }],
+            rating: { average: 4.5, count: 2 },
+            tags: [{ slug: "high-protein", label: "High protein" }],
           },
         ],
         pagination: { page: 2, limit: 10, total: 23, totalPages: 3, hasNext: true, hasPrev: true },
       },
     });
     const out = await handlers.get("search_public_recipes")!({
-      search: "kurczak", minProtein: 30, maxCalories: 500, sort: "protein_desc", page: 2, limit: 10,
+      search: "kurczak",
+      minProtein: 30,
+      maxCalories: 500,
+      sort: "protein_desc",
+      page: 2,
+      limit: 10,
     });
     const text = out.content[0].text;
     expect(text).toContain("high-protein");
@@ -321,7 +422,10 @@ describe("recipe catalog", () => {
     wire();
     stubFetch({
       "/recipes/public/kurczak": {
-        id: "r1", name: "Kurczak", slug: "kurczak", servings: 2,
+        id: "r1",
+        name: "Kurczak",
+        slug: "kurczak",
+        servings: 2,
         nutrition: { caloriesPerServing: 380, proteinPerServing: 42 },
         ingredients: [{ productName: "Pierś", amount: 400, unit: "g" }],
         steps: [{ instruction: "Upiecz" }],
@@ -358,8 +462,16 @@ describe("recipe catalog", () => {
       },
       "/recipes/public": {
         data: [
-          { id: "r1", name: "Omlet", nutrition: { caloriesPerServing: 300, proteinPerServing: 25, carbsPerServing: 5, fatPerServing: 20 } },
-          { id: "r2", name: "Tort", nutrition: { caloriesPerServing: 900, proteinPerServing: 10, carbsPerServing: 100, fatPerServing: 40 } },
+          {
+            id: "r1",
+            name: "Omlet",
+            nutrition: { caloriesPerServing: 300, proteinPerServing: 25, carbsPerServing: 5, fatPerServing: 20 },
+          },
+          {
+            id: "r2",
+            name: "Tort",
+            nutrition: { caloriesPerServing: 900, proteinPerServing: 10, carbsPerServing: 100, fatPerServing: 40 },
+          },
         ],
       },
     });
@@ -379,7 +491,9 @@ describe("meal suggestions", () => {
         data: {
           mealTarget: { calories: 500, protein: 40, carbs: 50, fat: 15 },
           dailyRemaining: { calories: 1200, protein: 90, carbs: 120, fat: 40 },
-          suggestions: [{ source: "recipe", recipeId: "r1", recipeName: "Kurczak", projected: { calories: 480 }, matchScore: 88 }],
+          suggestions: [
+            { source: "recipe", recipeId: "r1", recipeName: "Kurczak", projected: { calories: 480 }, matchScore: 88 },
+          ],
           offerAiFallback: false,
         },
       },
@@ -395,10 +509,18 @@ describe("diet plans", () => {
     wire();
     stubFetch({
       "/diet-plans": {
-        plans: [{
-          id: "p1", name: "Balanced 7d", durationDays: 7, dietTemplate: "balanced", isActive: true,
-          dailyCalorieTarget: 2000, dailyProteinTarget: 150, days: [{ dayNumber: 1, meals: [] }],
-        }],
+        plans: [
+          {
+            id: "p1",
+            name: "Balanced 7d",
+            durationDays: 7,
+            dietTemplate: "balanced",
+            isActive: true,
+            dailyCalorieTarget: 2000,
+            dailyProteinTarget: 150,
+            days: [{ dayNumber: 1, meals: [] }],
+          },
+        ],
       },
     });
     const out = await handlers.get("get_diet_plans")!({});
@@ -411,8 +533,16 @@ describe("diet plans", () => {
     stubFetch({
       "/diet-plans/p1": {
         plan: {
-          id: "p1", name: "Plan", durationDays: 1,
-          days: [{ dayNumber: 1, dayOfWeek: 1, meals: [{ mealType: "lunch", recipeName: "Kurczak", calories: 500, protein: 40, carbs: 30, fat: 20 }] }],
+          id: "p1",
+          name: "Plan",
+          durationDays: 1,
+          days: [
+            {
+              dayNumber: 1,
+              dayOfWeek: 1,
+              meals: [{ mealType: "lunch", recipeName: "Kurczak", calories: 500, protein: 40, carbs: 30, fat: 20 }],
+            },
+          ],
         },
       },
     });
@@ -425,7 +555,10 @@ describe("diet plans", () => {
     wire();
     stubFetch({ "/diet-plans/generate": { full: { id: "p2", name: "High protein", days: [] } } });
     const out = await handlers.get("generate_diet_plan")!({
-      template: "highprotein", calorieTarget: 2200, durationDays: 7, plannedStartDate: "2026-10-20",
+      template: "highprotein",
+      calorieTarget: 2200,
+      durationDays: 7,
+      plannedStartDate: "2026-10-20",
     });
     expect(calls[0].method).toBe("POST");
     expect(calls[0].body.template).toBe("highprotein");
@@ -435,7 +568,10 @@ describe("diet plans", () => {
 
   it("activate/extend hit their endpoints", async () => {
     wire();
-    stubFetch({ "/diet-plans/p1/activate": { updated: { id: "p1", startDate: "2026-10-20" } }, "/diet-plans/p1/extend": { durationDays: 14 } });
+    stubFetch({
+      "/diet-plans/p1/activate": { updated: { id: "p1", startDate: "2026-10-20" } },
+      "/diet-plans/p1/extend": { durationDays: 14 },
+    });
     await handlers.get("activate_diet_plan")!({ id: "p1", startDate: "2026-10-20" });
     await handlers.get("extend_diet_plan")!({ id: "p1", additionalDays: 7 });
     expect(calls[0].url).toContain("/diet-plans/p1/activate");
@@ -448,7 +584,14 @@ describe("profile, coach and dashboard", () => {
   it("get_profile maps body data", async () => {
     wire();
     stubFetch({
-      "/auth/me": { id: "u1", displayName: "Rafał", height: 180, language: "pl", targetWeight: 78, dailyCaloriesGoal: 2200 },
+      "/auth/me": {
+        id: "u1",
+        displayName: "Rafał",
+        height: 180,
+        language: "pl",
+        targetWeight: 78,
+        dailyCaloriesGoal: 2200,
+      },
       "/measurements/latest": { weight: 82, date: "2026-10-18" },
     });
     const out = await handlers.get("get_profile")!({});
@@ -475,7 +618,9 @@ describe("profile, coach and dashboard", () => {
 describe("period stats", () => {
   it("get_nutrition_stats passes the resolved range", async () => {
     wire();
-    stubFetch({ "/nutrition/stats": { totals: { calories: 14000 }, averagePerDay: { calories: 2000 }, entryCount: 42 } });
+    stubFetch({
+      "/nutrition/stats": { totals: { calories: 14000 }, averagePerDay: { calories: 2000 }, entryCount: 42 },
+    });
     const out = await handlers.get("get_nutrition_stats")!({ from: "2026-10-01", to: "2026-10-10" });
     expect(calls[0].url).toContain("startDate=2026-10-01");
     expect(calls[0].url).toContain("endDate=2026-10-10");
@@ -484,7 +629,12 @@ describe("period stats", () => {
 
   it("get_activity_stats trims by type", async () => {
     wire();
-    stubFetch({ "/activity/stats": { totals: { duration: 3600, caloriesBurned: 500, distance: 10 }, byType: { running: { count: 2 } } } });
+    stubFetch({
+      "/activity/stats": {
+        totals: { duration: 3600, caloriesBurned: 500, distance: 10 },
+        byType: { running: { count: 2 } },
+      },
+    });
     const out = await handlers.get("get_activity_stats")!({});
     expect(out.content[0].text).toContain("by_type");
   });
@@ -531,8 +681,24 @@ describe("period stats", () => {
     stubFetch({
       "/stats/nutrition-history": {
         data: [
-          { foodName: "Skyr", productBarcode: null, occurrences: 4, avgCalories: 120, avgProtein: 18, avgCarbs: 6, avgFat: 1 },
-          { foodName: "Jajka", productBarcode: null, occurrences: 2, avgCalories: 140, avgProtein: 12, avgCarbs: 1, avgFat: 10 },
+          {
+            foodName: "Skyr",
+            productBarcode: null,
+            occurrences: 4,
+            avgCalories: 120,
+            avgProtein: 18,
+            avgCarbs: 6,
+            avgFat: 1,
+          },
+          {
+            foodName: "Jajka",
+            productBarcode: null,
+            occurrences: 2,
+            avgCalories: 140,
+            avgProtein: 12,
+            avgCarbs: 1,
+            avgFat: 10,
+          },
         ],
       },
     });
@@ -552,14 +718,22 @@ describe("period stats", () => {
           category: "measurement",
           metric: "weight",
           unit: "kg",
-          points: [{ date: "2026-10-18", value: 75.2 }, { date: "2026-10-19", value: 74.8 }],
+          points: [
+            { date: "2026-10-18", value: 75.2 },
+            { date: "2026-10-19", value: 74.8 },
+          ],
           delta: -0.4,
           startValue: 75.2,
           endValue: 74.8,
         },
       },
     });
-    const out = await handlers.get("get_metric_trend")!({ category: "measurement", metric: "weight", from: "2026-10-01", to: "2026-10-19" });
+    const out = await handlers.get("get_metric_trend")!({
+      category: "measurement",
+      metric: "weight",
+      from: "2026-10-01",
+      to: "2026-10-19",
+    });
     const text = out.content[0].text;
     expect(text).toContain('"category":"measurement"');
     expect(text).toContain('"delta":-0.4');
@@ -572,7 +746,19 @@ describe("strength stats", () => {
   it("get_personal_records lists current records with deltas", async () => {
     wire();
     stubFetch({
-      "/exercises/records/all": { data: [{ exerciseId: "e1", exerciseName: "Bench Press", recordType: "ONE_RM", value: 100, unit: "kg", previousValue: 95, achievedAt: "2026-10-10T10:00:00Z" }] },
+      "/exercises/records/all": {
+        data: [
+          {
+            exerciseId: "e1",
+            exerciseName: "Bench Press",
+            recordType: "ONE_RM",
+            value: 100,
+            unit: "kg",
+            previousValue: 95,
+            achievedAt: "2026-10-10T10:00:00Z",
+          },
+        ],
+      },
     });
     const out = await handlers.get("get_personal_records")!({});
     expect(out.content[0].text).toContain("Bench Press");
@@ -581,14 +767,20 @@ describe("strength stats", () => {
 
   it("get_exercise_history passes months", async () => {
     wire();
-    stubFetch({ "/workouts/exercise-history/e1": { data: [{ date: "2026-10-10", sets: [{ reps: 8, weight: 80, isCompleted: true }] }] } });
+    stubFetch({
+      "/workouts/exercise-history/e1": {
+        data: [{ date: "2026-10-10", sets: [{ reps: 8, weight: 80, isCompleted: true }] }],
+      },
+    });
     await handlers.get("get_exercise_history")!({ exerciseId: "e1", months: 6 });
     expect(calls[0].url).toContain("months=6");
   });
 
   it("get_muscle_activation defaults since to 30 days ago", async () => {
     wire();
-    stubFetch({ "/workouts/muscle-activation": { exercises: [{ exerciseId: "e1", name: "Squat", completedSets: 12 }] } });
+    stubFetch({
+      "/workouts/muscle-activation": { exercises: [{ exerciseId: "e1", name: "Squat", completedSets: 12 }] },
+    });
     const out = await handlers.get("get_muscle_activation")!({});
     expect(calls[0].url).toContain("since=");
     expect(out.content[0].text).toContain("Squat");
@@ -598,7 +790,9 @@ describe("strength stats", () => {
 describe("fridge and shopping list", () => {
   it("get_fridge trims the inventory", async () => {
     wire();
-    stubFetch({ "/fridge": { data: [{ id: "f1", name: "Jajka", quantity: "10", category: "dairy", expiryDate: "2026-10-25" }] } });
+    stubFetch({
+      "/fridge": { data: [{ id: "f1", name: "Jajka", quantity: "10", category: "dairy", expiryDate: "2026-10-25" }] },
+    });
     const out = await handlers.get("get_fridge")!({});
     expect(out.content[0].text).toContain("Jajka");
   });
@@ -606,14 +800,21 @@ describe("fridge and shopping list", () => {
   it("add_fridge_item posts the item", async () => {
     wire();
     stubFetch({ "/fridge": { id: "f2" } });
-    await handlers.get("add_fridge_item")!({ name: "Skyr", quantity: "2", category: "dairy", expiryDate: "2026-10-30" });
+    await handlers.get("add_fridge_item")!({
+      name: "Skyr",
+      quantity: "2",
+      category: "dairy",
+      expiryDate: "2026-10-30",
+    });
     expect(calls[0].method).toBe("POST");
     expect(calls[0].body.name).toBe("Skyr");
   });
 
   it("get_shopping_list lists items", async () => {
     wire();
-    stubFetch({ "/shopping-list": { data: { id: "l1", name: "Lista", items: [{ id: "i1", name: "Mleko", isCompleted: false }] } } });
+    stubFetch({
+      "/shopping-list": { data: { id: "l1", name: "Lista", items: [{ id: "i1", name: "Mleko", isCompleted: false }] } },
+    });
     const out = await handlers.get("get_shopping_list")!({});
     expect(out.content[0].text).toContain("Mleko");
   });
@@ -657,4 +858,3 @@ describe("tool registry", () => {
     }
   });
 });
-

@@ -1,0 +1,6 @@
+dist
+node_modules
+coverage
+pnpm-lock.yaml
+# Markdown tables (docs/tools.md, skills) are regenerated/curated, not wrapped.
+*.md
