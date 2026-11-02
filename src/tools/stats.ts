@@ -24,13 +24,7 @@ import {
 } from "../schemas/common.js";
 import { resolvePeriod } from "../utils/dates.js";
 import { JsonObjectOutput, jsonResult } from "../utils/result.js";
-import {
-  convertGoalValue,
-  convertWeight,
-  convertWeightStats,
-  getUserUnits,
-  isImperial,
-} from "../utils/units.js";
+import { convertGoalValue, convertWeight, convertWeightStats, getUserUnits, isImperial } from "../utils/units.js";
 
 function round(value: unknown, digits = 1): number | null {
   return typeof value === "number" && Number.isFinite(value) ? Math.round(value * 10 ** digits) / 10 ** digits : null;
@@ -113,7 +107,13 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
       const units = await getUserUnits(accessToken);
       const imperial = isImperial(units);
       const weightStats = stats?.weight as
-        | { min?: number | null; max?: number | null; avg?: number | null; latest?: number | null; first?: number | null }
+        | {
+            min?: number | null;
+            max?: number | null;
+            avg?: number | null;
+            latest?: number | null;
+            first?: number | null;
+          }
         | undefined;
       return jsonResult({
         from,
@@ -243,13 +243,16 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
       return jsonResult({
         category: trend?.category ?? input.category,
         metric: trend?.metric ?? input.metric ?? null,
-        unit: imperial && isWeightTrend ? "lbs" : trend?.unit ?? null,
-        points: imperial && isWeightTrend
-          ? points.map((p) => ({ date: p.date, weight: convertWeight(p.weight, true) }))
-          : points,
+        unit: imperial && isWeightTrend ? "lbs" : (trend?.unit ?? null),
+        points:
+          imperial && isWeightTrend
+            ? points.map((p) => ({ date: p.date, weight: convertWeight(p.weight, true) }))
+            : points,
         delta: imperial && isWeightTrend ? convertWeight(round(trend?.delta, 1), true) : round(trend?.delta, 1),
-        startValue: imperial && isWeightTrend ? convertWeight(round(trend?.startValue, 2), true) : round(trend?.startValue, 2),
-        endValue: imperial && isWeightTrend ? convertWeight(round(trend?.endValue, 2), true) : round(trend?.endValue, 2),
+        startValue:
+          imperial && isWeightTrend ? convertWeight(round(trend?.startValue, 2), true) : round(trend?.startValue, 2),
+        endValue:
+          imperial && isWeightTrend ? convertWeight(round(trend?.endValue, 2), true) : round(trend?.endValue, 2),
       });
     },
   );
@@ -276,13 +279,15 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
       const isWeightMetric = weightMetrics.has(input.metric);
       return jsonResult({
         metric: res?.metric ?? input.metric,
-        unit: imperial && isWeightMetric ? "lbs" : res?.unit ?? null,
+        unit: imperial && isWeightMetric ? "lbs" : (res?.unit ?? null),
         engine: res?.engineType ?? null,
         forecast: forecast.map((p) => ({
           date: p.date ?? null,
           value: imperial && isWeightMetric ? convertWeight(round(p.value, 2), true) : round(p.value, 2),
-          lower: imperial && isWeightMetric ? convertWeight(round(p.confidenceLower, 2), true) : round(p.confidenceLower, 2),
-          upper: imperial && isWeightMetric ? convertWeight(round(p.confidenceUpper, 2), true) : round(p.confidenceUpper, 2),
+          lower:
+            imperial && isWeightMetric ? convertWeight(round(p.confidenceLower, 2), true) : round(p.confidenceLower, 2),
+          upper:
+            imperial && isWeightMetric ? convertWeight(round(p.confidenceUpper, 2), true) : round(p.confidenceUpper, 2),
         })),
       });
     },

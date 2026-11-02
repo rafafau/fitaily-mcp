@@ -43,7 +43,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "validate:skills": "node scripts/validate-skills.mjs"
+    "validate:skills": "node scripts/validate-skills.mjs",
+    "prepare": "husky"
   },
   "dependencies": {
     "@modelcontextprotocol/express": "2.0.2",
@@ -65,6 +66,7 @@
     "@types/supertest": "^7.2.1",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
     "prettier": "^3.9.10",
     "supertest": "^7.3.1",
     "tsx": "^4.23.15",

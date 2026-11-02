@@ -36,16 +36,19 @@ export function isImperial(units: string): boolean {
 
 /** Konwertuje obiekt statystyk wagi ({min,max,avg,latest,first}) na funty gdy imperial. */
 export function convertWeightStats(
-  stats: { min?: number | null; max?: number | null; avg?: number | null; latest?: number | null; first?: number | null } | null | undefined,
+  stats:
+    | { min?: number | null; max?: number | null; avg?: number | null; latest?: number | null; first?: number | null }
+    | null
+    | undefined,
   imperial: boolean,
 ) {
   if (!stats) return stats;
   return {
-    min: imperial ? kgToLbs(stats.min ?? null) : stats.min ?? null,
-    max: imperial ? kgToLbs(stats.max ?? null) : stats.max ?? null,
-    avg: imperial ? kgToLbs(stats.avg ?? null) : stats.avg ?? null,
-    latest: imperial ? kgToLbs(stats.latest ?? null) : stats.latest ?? null,
-    first: imperial ? kgToLbs(stats.first ?? null) : stats.first ?? null,
+    min: imperial ? kgToLbs(stats.min ?? null) : (stats.min ?? null),
+    max: imperial ? kgToLbs(stats.max ?? null) : (stats.max ?? null),
+    avg: imperial ? kgToLbs(stats.avg ?? null) : (stats.avg ?? null),
+    latest: imperial ? kgToLbs(stats.latest ?? null) : (stats.latest ?? null),
+    first: imperial ? kgToLbs(stats.first ?? null) : (stats.first ?? null),
   };
 }
 
