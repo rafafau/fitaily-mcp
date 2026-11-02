@@ -1,9 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { fitailyGet, fitailyGetRaw, fitailySend } from "../api/fitaily-client";
-import { today } from "../utils/dates";
-import type { McpAuth } from "../auth/verify";
-import { requireScope } from "../auth/verify";
+import { fitailyGet, fitailyGetRaw, fitailySend } from "../api/fitaily-client.js";
+import { listOf, type DiscoverySection, type RecipeTagRef } from "../api/types.js";
+import { today } from "../utils/dates.js";
+import type { McpAuth } from "../auth/verify.js";
+import { requireScope } from "../auth/verify.js";
 import {
   RecipeSuggestionInput,
   ListRecipesInput,
@@ -16,7 +17,8 @@ import {
   CreateRecipeInput,
   UpdateRecipeInput,
   DeleteRecipeInput,
-} from "../schemas/common";
+} from "../schemas/common.js";
+import { JsonObjectOutput, jsonResult } from "../utils/result.js";
 
 interface RawRecipe {
   id: string;
@@ -107,11 +109,6 @@ function fullRecipe(r: RawRecipe): object {
   };
 }
 
-function listOf(res: any): any[] {
-  if (Array.isArray(res)) return res;
-  return res.recipes || res.items || res.entries || res.data || [];
-}
-
 /** Recipes: discovery, own library, public catalog, favorites, and full CRUD. */
 export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToken: string): void {
   server.registerTool(
@@ -120,15 +117,20 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       description:
         "Recipe ideas ranked for the day's remaining calories (same discovery as the app). Filter by meal type and max prep time.",
       inputSchema: RecipeSuggestionInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof RecipeSuggestionInput>) => {
       requireScope(auth, "nutrition:read");
-      const res = await fitailyGet<any>(accessToken, "/recipes/discovery", input.date ? { date: input.date } : {});
-      const sections = res.sections || (Array.isArray(res) ? res : []);
+      const res = await fitailyGet<DiscoverySection[] | { sections?: DiscoverySection[] }>(
+        accessToken,
+        "/recipes/discovery",
+        input.date ? { date: input.date } : {},
+      );
+      const sections = listOf<DiscoverySection>(res, "sections");
       const limit = input.limit ?? 6;
-      const out: any[] = [];
-      for (const s of sections as any[]) {
+      const out: object[] = [];
+      for (const s of sections) {
         for (const r of s.items || []) {
           if (input.maxTimeMin != null && (r.durationMinutes ?? 9999) > input.maxTimeMin) continue;
           out.push({
@@ -147,7 +149,7 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
         }
         if (out.length >= limit) break;
       }
-      return { content: [{ type: "text", text: JSON.stringify({ recipes: out }) }] };
+      return jsonResult({ recipes: out });
     },
   );
 
@@ -156,22 +158,16 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
     {
       description: "The user's own saved recipes (id, name, times, servings).",
       inputSchema: ListRecipesInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof ListRecipesInput>) => {
       requireScope(auth, "nutrition:read");
-      const res = await fitailyGet<any>(accessToken, "/recipes/my", {
+      const res = await fitailyGet<RawRecipe[] | { recipes?: RawRecipe[] }>(accessToken, "/recipes/my", {
         search: input.search,
       });
-      const recipes = listOf(res);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ recipes: recipes.slice(0, input.limit ?? 30).map(trimRecipe) }),
-          },
-        ],
-      };
+      const recipes = listOf<RawRecipe>(res, "recipes", "data");
+      return jsonResult({ recipes: recipes.slice(0, input.limit ?? 30).map(trimRecipe) });
     },
   );
 
@@ -181,39 +177,37 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       description:
         "Browse the public Fitaily recipe catalog (~300 recipes) with full filters. Search matches the dish name, description AND ingredient names (so 'chicken' finds recipes using chicken). Nutrition filters are per serving. Use sort=protein_desc or calories_asc for macro-targeted picks. Tag coverage is uneven — call get_recipe_tags first to see which tags exist and how many recipes each has. Most public recipes have no ratings yet, so minRatingCount>0 and sort=rating usually return little.",
       inputSchema: PublicRecipesInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof PublicRecipesInput>) => {
       requireScope(auth, "nutrition:read");
-      const res = await fitailyGetRaw<any>(accessToken, "/recipes/public", {
-        search: input.search,
-        tags: input.tags?.join(","),
-        minCalories: input.minCalories,
-        maxCalories: input.maxCalories,
-        minProtein: input.minProtein,
-        maxProtein: input.maxProtein,
-        minCarbs: input.minCarbs,
-        maxCarbs: input.maxCarbs,
-        minFat: input.minFat,
-        maxFat: input.maxFat,
-        maxTotalTime: input.maxTotalTimeMin,
-        minRatingCount: input.minRatingCount,
-        sort: input.sort,
-        page: input.page ?? 1,
-        limit: input.limit ?? 20,
+      const res = await fitailyGetRaw<RawRecipe[] | { recipes?: RawRecipe[]; pagination?: unknown }>(
+        accessToken,
+        "/recipes/public",
+        {
+          search: input.search,
+          tags: input.tags?.join(","),
+          minCalories: input.minCalories,
+          maxCalories: input.maxCalories,
+          minProtein: input.minProtein,
+          maxProtein: input.maxProtein,
+          minCarbs: input.minCarbs,
+          maxCarbs: input.maxCarbs,
+          minFat: input.minFat,
+          maxFat: input.maxFat,
+          maxTotalTime: input.maxTotalTimeMin,
+          minRatingCount: input.minRatingCount,
+          sort: input.sort,
+          page: input.page ?? 1,
+          limit: input.limit ?? 20,
+        },
+      );
+      const recipes = listOf<RawRecipe>(res, "recipes", "data");
+      return jsonResult({
+        recipes: recipes.map(catalogCard),
+        pagination: (res as { pagination?: unknown }).pagination ?? null,
       });
-      const recipes = listOf(res);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              recipes: recipes.map(catalogCard),
-              pagination: res?.pagination ?? null,
-            }),
-          },
-        ],
-      };
     },
   );
 
@@ -223,26 +217,20 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       description:
         "Public recipe tag catalog with recipe counts. Use it before filtering by tags — many diet tags (keto, vegan, dairy-free) cover only a handful of recipes, while high-protein/vegetarian/gluten-free are broad.",
       inputSchema: z.object({}),
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
     async () => {
       requireScope(auth, "nutrition:read");
-      const res = await fitailyGet<any>(accessToken, "/recipes/tags");
+      const res = await fitailyGet<RecipeTagRef[]>(accessToken, "/recipes/tags");
       const tags = Array.isArray(res) ? res : [];
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              tags: (tags as any[]).map((t) => ({
-                slug: t.slug,
-                label: t.label ?? t.name ?? t.slug,
-                count: t.count ?? 0,
-              })),
-            }),
-          },
-        ],
-      };
+      return jsonResult({
+        tags: tags.map((t) => ({
+          slug: t.slug,
+          label: t.label ?? t.name ?? t.slug,
+          count: t.count ?? 0,
+        })),
+      });
     },
   );
 
@@ -252,12 +240,13 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       description:
         "Full public recipe by slug (from search_public_recipes): ingredients with amounts, numbered steps, per-serving macros and tags.",
       inputSchema: GetPublicRecipeInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof GetPublicRecipeInput>) => {
       requireScope(auth, "nutrition:read");
       const r = await fitailyGet<RawRecipe>(accessToken, `/recipes/public/${encodeURIComponent(input.slug)}`);
-      return { content: [{ type: "text", text: JSON.stringify(fullRecipe(r)) }] };
+      return jsonResult(fullRecipe(r));
     },
   );
 
@@ -266,12 +255,13 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
     {
       description: "Full recipe by id: description, ingredient list with amounts and numbered steps.",
       inputSchema: GetRecipeInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof GetRecipeInput>) => {
       requireScope(auth, "nutrition:read");
       const r = await fitailyGet<RawRecipe>(accessToken, `/recipes/${input.id}`);
-      return { content: [{ type: "text", text: JSON.stringify(fullRecipe(r)) }] };
+      return jsonResult(fullRecipe(r));
     },
   );
 
@@ -281,14 +271,19 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       description:
         "Pick recipes that fit what is LEFT of today's calorie budget. Combines the day summary (consumed vs goals) with the public catalog, then ranks by protein density. Optionally restricted to one meal type's share of the remaining budget.",
       inputSchema: RemainingMacrosRecipesInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof RemainingMacrosRecipesInput>) => {
       requireScope(auth, "nutrition:read");
       const date = input.date ?? today();
-      const summary = await fitailyGet<any>(accessToken, "/nutrition/day-summary", {
-        date,
-      }).catch(() => null);
+      const summary = await fitailyGet<{ remaining?: { calories?: number; protein?: number } } | null>(
+        accessToken,
+        "/nutrition/day-summary",
+        {
+          date,
+        },
+      ).catch(() => null);
 
       const remainingCalories =
         input.maxCalories ?? (typeof summary?.remaining?.calories === "number" ? summary.remaining.calories : null);
@@ -298,7 +293,7 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       // per-meal budget they pass maxCalories explicitly.
       const budget = remainingCalories;
 
-      const res = await fitailyGetRaw<any>(accessToken, "/recipes/public", {
+      const res = await fitailyGetRaw<RawRecipe[] | { recipes?: RawRecipe[] }>(accessToken, "/recipes/public", {
         maxCalories: budget != null && budget > 0 ? Math.max(50, budget) : undefined,
         minProtein: input.minProtein,
         maxTotalTime: input.maxTotalTimeMin,
@@ -308,28 +303,21 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
         limit: Math.min(Math.max((input.limit ?? 6) * 4, 12), 40),
       });
 
-      const candidates = listOf(res).filter((r: RawRecipe) => {
+      const candidates = listOf<RawRecipe>(res, "recipes", "data").filter((r) => {
         const kcal = r.nutrition?.caloriesPerServing;
         if (budget != null && budget > 0 && typeof kcal === "number" && kcal > budget) return false;
         return true;
       });
 
       const limit = input.limit ?? 6;
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              date,
-              meal_type: input.mealType ?? null,
-              remaining_calories: remainingCalories,
-              remaining_protein_g: remainingProtein,
-              calorie_budget_for_pick: budget,
-              recipes: candidates.slice(0, limit).map(catalogCard),
-            }),
-          },
-        ],
-      };
+      return jsonResult({
+        date,
+        meal_type: input.mealType ?? null,
+        remaining_calories: remainingCalories,
+        remaining_protein_g: remainingProtein,
+        calorie_budget_for_pick: budget,
+        recipes: candidates.slice(0, limit).map(catalogCard),
+      });
     },
   );
 
@@ -338,20 +326,14 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
     {
       description: "Recipes the user marked as favorites.",
       inputSchema: z.object({}),
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
     async () => {
       requireScope(auth, "nutrition:read");
-      const res = await fitailyGet<any>(accessToken, "/recipes/favorites");
-      const recipes = listOf(res);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ recipes: recipes.map(catalogCard) }),
-          },
-        ],
-      };
+      const res = await fitailyGet<RawRecipe[] | { recipes?: RawRecipe[] }>(accessToken, "/recipes/favorites");
+      const recipes = listOf<RawRecipe>(res, "recipes", "data");
+      return jsonResult({ recipes: recipes.map(catalogCard) });
     },
   );
 
@@ -361,9 +343,10 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       description:
         "WRITE: add or remove a recipe from favorites. Set favorite=false to remove (defaults to true). Confirm with the user first.",
       inputSchema: RecipeFavoriteInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof RecipeFavoriteInput>) => {
       requireScope(auth, "nutrition:write");
       const favorite = input.favorite ?? true;
       if (favorite) {
@@ -371,14 +354,7 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       } else {
         await fitailySend(accessToken, "DELETE", `/recipes/${input.recipeId}/favorite`);
       }
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ recipe_id: input.recipeId, favorite }),
-          },
-        ],
-      };
+      return jsonResult({ recipe_id: input.recipeId, favorite });
     },
   );
 
@@ -388,21 +364,15 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       description:
         "WRITE: rate a public recipe 1–5 stars (updates an existing rating). You cannot rate your own recipes. Confirm with the user first.",
       inputSchema: RateRecipeInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof RateRecipeInput>) => {
       requireScope(auth, "nutrition:write");
-      const res = await fitailySend<any>(accessToken, "POST", `/recipes/${input.recipeId}/rate`, {
+      const res = await fitailySend<{ rating?: number }>(accessToken, "POST", `/recipes/${input.recipeId}/rate`, {
         rating: input.rating,
       });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ recipe_id: input.recipeId, rating: res?.rating ?? input.rating }),
-          },
-        ],
-      };
+      return jsonResult({ recipe_id: input.recipeId, rating: res?.rating ?? input.rating });
     },
   );
 
@@ -412,9 +382,10 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       description:
         "WRITE: save a recipe to the user's library. Confirm the whole recipe with the user first. Ingredients need amount+unit; include per-100g macros when you know them so the app can compute nutrition.",
       inputSchema: CreateRecipeInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof CreateRecipeInput>) => {
       requireScope(auth, "nutrition:write");
       const created = await fitailySend<RawRecipe>(accessToken, "POST", "/recipes", {
         name: input.name,
@@ -428,7 +399,7 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
         isPublic: input.isPublic ?? false,
         sourceLanguage: input.sourceLanguage,
       });
-      return { content: [{ type: "text", text: JSON.stringify({ recipe: trimRecipe(created) }) }] };
+      return jsonResult({ recipe: trimRecipe(created) });
     },
   );
 
@@ -438,13 +409,14 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
       description:
         "WRITE: edit a recipe by id. Send only the fields that change; ingredients/steps replace the whole list. Confirm with the user first.",
       inputSchema: UpdateRecipeInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof UpdateRecipeInput>) => {
       requireScope(auth, "nutrition:write");
       const { id, ...patch } = input;
       const updated = await fitailySend<RawRecipe>(accessToken, "PUT", `/recipes/${id}`, patch);
-      return { content: [{ type: "text", text: JSON.stringify({ recipe: trimRecipe(updated) }) }] };
+      return jsonResult({ recipe: trimRecipe(updated) });
     },
   );
 
@@ -453,12 +425,13 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
     {
       description: "WRITE: delete a recipe from the user's library. Confirm with the user first.",
       inputSchema: DeleteRecipeInput,
+      outputSchema: JsonObjectOutput,
       annotations: { destructiveHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof DeleteRecipeInput>) => {
       requireScope(auth, "nutrition:write");
       await fitailySend(accessToken, "DELETE", `/recipes/${input.id}`);
-      return { content: [{ type: "text", text: JSON.stringify({ deleted: input.id }) }] };
+      return jsonResult({ deleted: input.id });
     },
   );
 }

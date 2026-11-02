@@ -1,8 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { fitailyGet, fitailySend } from "../api/fitaily-client";
-import type { McpAuth } from "../auth/verify";
-import { requireScope } from "../auth/verify";
+import { fitailyGet, fitailySend } from "../api/fitaily-client.js";
+import { listOf, type Activity, type CreatedEntity, type PlanSummary, type Workout } from "../api/types.js";
+import type { McpAuth } from "../auth/verify.js";
+import { requireScope } from "../auth/verify.js";
 import {
   TrainingHistoryInput,
   LogActivityInput,
@@ -11,7 +12,8 @@ import {
   CreateWorkoutPlanInput,
   UpdateWorkoutPlanInput,
   DeleteWorkoutPlanInput,
-} from "../schemas/common";
+} from "../schemas/common.js";
+import { JsonObjectOutput, jsonResult } from "../utils/result.js";
 
 interface RawPlanExercise {
   exerciseId: string;
@@ -59,50 +61,44 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "Recent activities and strength workouts (type, date, distance, duration). No per-second GPS.",
       inputSchema: TrainingHistoryInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof TrainingHistoryInput>) => {
       requireScope(auth, "training:read");
       const params: Record<string, string | number | undefined> = { limit: input.limit ?? 10 };
       if (input.from) params.startDate = input.from;
       if (input.to) params.endDate = input.to;
       const [activities, workouts] = await Promise.all([
-        fitailyGet<any>(accessToken, "/activity", params).catch(() => ({ entries: [] })),
-        fitailyGet<any>(accessToken, "/workouts", {}).catch(() => []),
+        fitailyGet<unknown>(accessToken, "/activity", params).catch(() => ({ entries: [] })),
+        fitailyGet<unknown>(accessToken, "/workouts", {}).catch(() => []),
       ]);
-      const activityList = Array.isArray(activities) ? activities : activities.entries || activities.activities || [];
-      const workoutList = Array.isArray(workouts) ? workouts : workouts.workouts || workouts.sessions || [];
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              activities: activityList.slice(0, input.limit ?? 10).map((a: any) => ({
-                id: a.id,
-                date: a.date,
-                type: a.type,
-                name: a.name,
-                distance_km: a.distance ?? null,
-                duration_min: a.duration != null ? Math.round(Number(a.duration) / 60) : null,
-                calories: a.caloriesBurned ?? null,
-                avg_hr: a.averageHeartrate ?? null,
-              })),
-              strength_workouts: workoutList.slice(0, input.limit ?? 10).map((w: any) => ({
-                id: w.id,
-                date: w.date || w.startTime,
-                name: w.name,
-                status: w.status,
-                exercises: (w.exercises || []).map((e: any) => ({
-                  name: e.exercise?.name || e.name,
-                  sets: (e.sets || [])
-                    .filter((s: any) => s.isCompleted)
-                    .map((s: any) => ({ reps: s.reps, weight_kg: s.weight ?? null })),
-                })),
-              })),
-            }),
-          },
-        ],
-      };
+      const activityList = listOf<Activity>(activities, "entries", "activities");
+      const workoutList = listOf<Workout>(workouts, "workouts", "sessions");
+      return jsonResult({
+        activities: activityList.slice(0, input.limit ?? 10).map((a) => ({
+          id: a.id,
+          date: a.date,
+          type: a.type,
+          name: a.name,
+          distance_km: a.distance ?? null,
+          duration_min: a.duration != null ? Math.round(Number(a.duration) / 60) : null,
+          calories: a.caloriesBurned ?? null,
+          avg_hr: a.averageHeartrate ?? null,
+        })),
+        strength_workouts: workoutList.slice(0, input.limit ?? 10).map((w) => ({
+          id: w.id,
+          date: w.date || w.startTime,
+          name: w.name,
+          status: w.status,
+          exercises: (w.exercises || []).map((e) => ({
+            name: e.exercise?.name || e.name,
+            sets: (e.sets || [])
+              .filter((s) => s.isCompleted)
+              .map((s) => ({ reps: s.reps, weight_kg: s.weight ?? null })),
+          })),
+        })),
+      });
     },
   );
 
@@ -113,35 +109,28 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       inputSchema: z.object({
         limit: z.number().int().min(1).max(20).optional(),
       }),
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: { limit?: number }) => {
       requireScope(auth, "training:read");
       const [multi, strength] = await Promise.all([
-        fitailyGet<any>(accessToken, "/training-plans", {}).catch(() => []),
-        fitailyGet<any>(accessToken, "/workout-plans", {}).catch(() => []),
+        fitailyGet<unknown>(accessToken, "/training-plans", {}).catch(() => []),
+        fitailyGet<unknown>(accessToken, "/workout-plans", {}).catch(() => []),
       ]);
-      const norm = (v: any): any[] => (Array.isArray(v) ? v : v.plans || v.items || v.entries || []);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              multisport: norm(multi)
-                .slice(0, input.limit ?? 20)
-                .map((p: any) => ({ id: p.id, name: p.name, description: p.description ?? null })),
-              strength_templates: norm(strength)
-                .slice(0, input.limit ?? 20)
-                .map((p: any) => ({
-                  id: p.id,
-                  name: p.name,
-                  origin: p.origin ?? null,
-                  description: p.description ?? null,
-                })),
-            }),
-          },
-        ],
-      };
+      return jsonResult({
+        multisport: listOf<PlanSummary>(multi, "plans", "items", "entries")
+          .slice(0, input.limit ?? 20)
+          .map((p) => ({ id: p.id, name: p.name, description: p.description ?? null })),
+        strength_templates: listOf<PlanSummary>(strength, "plans", "items", "entries")
+          .slice(0, input.limit ?? 20)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            origin: p.origin ?? null,
+            description: p.description ?? null,
+          })),
+      });
     },
   );
 
@@ -151,11 +140,12 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "WRITE: log a simple cardio/manual activity (run, ride, walk). Confirm with the user first. Strength sessions cannot be created here — one active session per user plus set structure don't fit chat.",
       inputSchema: LogActivityInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof LogActivityInput>) => {
       requireScope(auth, "training:write");
-      const created = await fitailySend<any>(accessToken, "POST", "/activity", {
+      const created = await fitailySend<CreatedEntity>(accessToken, "POST", "/activity", {
         type: input.type,
         name: input.name,
         duration: input.durationMin * 60,
@@ -163,9 +153,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
         caloriesBurned: input.caloriesBurned,
         date: input.date,
       });
-      return {
-        content: [{ type: "text", text: JSON.stringify({ id: (created as any).id ?? null, name: input.name }) }],
-      };
+      return jsonResult({ id: created.id ?? null, name: input.name });
     },
   );
 
@@ -181,22 +169,16 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "Saved workout templates (name, description, origin, exercises). A template generated by a training plan has origin PLAN_TEMPLATE and is not shown in the app's workout library; pass origin=standalone to list only the user's own templates.",
       inputSchema: ListWorkoutPlansInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof ListWorkoutPlansInput>) => {
       requireScope(auth, "training:read");
-      const res = await fitailyGet<any>(accessToken, "/workout-plans", {
+      const res = await fitailyGet<unknown>(accessToken, "/workout-plans", {
         origin: input.origin ?? "all",
       });
-      const list = Array.isArray(res) ? res : res.plans || res.items || res.data || [];
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ plans: (list as RawPlan[]).slice(0, input.limit ?? 30).map(trimPlan) }),
-          },
-        ],
-      };
+      const list = listOf<RawPlan>(res, "plans", "items", "data");
+      return jsonResult({ plans: list.slice(0, input.limit ?? 30).map(trimPlan) });
     },
   );
 
@@ -205,12 +187,13 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "One workout template by id, with exercises and their sets/reps.",
       inputSchema: GetWorkoutPlanInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof GetWorkoutPlanInput>) => {
       requireScope(auth, "training:read");
       const plan = await fitailyGet<RawPlan>(accessToken, `/workout-plans/${input.id}`);
-      return { content: [{ type: "text", text: JSON.stringify(trimPlan(plan)) }] };
+      return jsonResult(trimPlan(plan));
     },
   );
 
@@ -220,9 +203,10 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       description:
         'WRITE: create a workout template. Confirm the whole template with the user first. exerciseId values must come from search_exercises — never invent them. reps is a free string (e.g. "8-12").',
       inputSchema: CreateWorkoutPlanInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof CreateWorkoutPlanInput>) => {
       requireScope(auth, "training:write");
       const created = await fitailySend<RawPlan>(accessToken, "POST", "/workout-plans", {
         name: input.name,
@@ -235,7 +219,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
           dayOfWeek: e.dayOfWeek,
         })),
       });
-      return { content: [{ type: "text", text: JSON.stringify({ plan: trimPlan(created) }) }] };
+      return jsonResult({ plan: trimPlan(created) });
     },
   );
 
@@ -245,9 +229,10 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "WRITE: update a strength plan. Send only changed fields; `exercises` replaces the whole list. Confirm with the user first.",
       inputSchema: UpdateWorkoutPlanInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof UpdateWorkoutPlanInput>) => {
       requireScope(auth, "training:write");
       const { id, exercises, ...rest } = input;
       const body: Record<string, unknown> = { ...rest };
@@ -261,7 +246,7 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
         }));
       }
       const updated = await fitailySend<RawPlan>(accessToken, "PUT", `/workout-plans/${id}`, body);
-      return { content: [{ type: "text", text: JSON.stringify({ plan: trimPlan(updated) }) }] };
+      return jsonResult({ plan: trimPlan(updated) });
     },
   );
 
@@ -270,12 +255,13 @@ export function registerTrainingTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "WRITE: delete a strength plan template. Confirm with the user first.",
       inputSchema: DeleteWorkoutPlanInput,
+      outputSchema: JsonObjectOutput,
       annotations: { destructiveHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof DeleteWorkoutPlanInput>) => {
       requireScope(auth, "training:write");
       await fitailySend(accessToken, "DELETE", `/workout-plans/${input.id}`);
-      return { content: [{ type: "text", text: JSON.stringify({ deleted: input.id }) }] };
+      return jsonResult({ deleted: input.id });
     },
   );
 }

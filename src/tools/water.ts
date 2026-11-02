@@ -1,8 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import { fitailyGet, fitailySend } from "../api/fitaily-client";
-import type { McpAuth } from "../auth/verify";
-import { requireScope } from "../auth/verify";
-import { WaterHistoryInput, LogWaterInput, DeleteWaterInput } from "../schemas/common";
+import { fitailyGet, fitailySend } from "../api/fitaily-client.js";
+import { z } from "zod";
+import { listOf, type CreatedEntity, type WaterEntry } from "../api/types.js";
+import type { McpAuth } from "../auth/verify.js";
+import { requireScope } from "../auth/verify.js";
+import { WaterHistoryInput, LogWaterInput, DeleteWaterInput } from "../schemas/common.js";
+import { JsonObjectOutput, jsonResult } from "../utils/result.js";
 
 export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken: string): void {
   server.registerTool(
@@ -10,29 +13,23 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
     {
       description: "Water intake entries over a date range.",
       inputSchema: WaterHistoryInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof WaterHistoryInput>) => {
       requireScope(auth, "nutrition:read");
       const params: Record<string, string | number | undefined> = { limit: input.limit ?? 30 };
       if (input.from) params.startDate = input.from;
       if (input.to) params.endDate = input.to;
-      const res = await fitailyGet<any>(accessToken, "/water/history", params);
-      const list = Array.isArray(res) ? res : res.entries || res.items || res.history || [];
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              entries: (list as any[]).slice(0, input.limit ?? 30).map((e: any) => ({
-                id: e.id,
-                amount_ml: e.amount,
-                date: e.date || e.createdAt || null,
-              })),
-            }),
-          },
-        ],
-      };
+      const res = await fitailyGet<unknown>(accessToken, "/water/history", params);
+      const list = listOf<WaterEntry>(res, "entries", "items", "history");
+      return jsonResult({
+        entries: list.slice(0, input.limit ?? 30).map((e) => ({
+          id: e.id,
+          amount_ml: e.amount,
+          date: e.date || e.createdAt || null,
+        })),
+      });
     },
   );
 
@@ -41,19 +38,16 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
     {
       description: "WRITE: log water intake in milliliters. Confirm with the user first.",
       inputSchema: LogWaterInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof LogWaterInput>) => {
       requireScope(auth, "nutrition:write");
-      const created = await fitailySend<any>(accessToken, "POST", "/water/log", {
+      const created = await fitailySend<CreatedEntity>(accessToken, "POST", "/water/log", {
         amount: input.amountMl,
         timestamp: input.date,
       });
-      return {
-        content: [
-          { type: "text", text: JSON.stringify({ id: (created as any).id ?? null, amount_ml: input.amountMl }) },
-        ],
-      };
+      return jsonResult({ id: created.id ?? null, amount_ml: input.amountMl });
     },
   );
 
@@ -62,12 +56,13 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
     {
       description: "WRITE: delete a water entry by id. Confirm with the user first.",
       inputSchema: DeleteWaterInput,
+      outputSchema: JsonObjectOutput,
       annotations: { destructiveHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof DeleteWaterInput>) => {
       requireScope(auth, "nutrition:write");
       await fitailySend(accessToken, "DELETE", `/water/${input.id}`);
-      return { content: [{ type: "text", text: JSON.stringify({ deleted: input.id }) }] };
+      return jsonResult({ deleted: input.id });
     },
   );
 }

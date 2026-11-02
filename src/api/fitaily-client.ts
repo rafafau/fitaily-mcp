@@ -1,4 +1,4 @@
-import { fitailyApiUrl } from "../config";
+import { fitailyApiUrl } from "../config.js";
 
 export class FitailyApiError extends Error {
   status: number;
@@ -38,7 +38,7 @@ export async function fitailySend<T>(
     throw new FitailyApiError(res.status, `Fitaily API error (${res.status})`);
   }
   if (res.status === 204) return {} as T;
-  const json = (await res.json().catch(() => ({}))) as any;
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   return (json?.data ?? json) as T;
 }
 /** Thin authenticated fetch to the existing backend. No caching, no DB. */

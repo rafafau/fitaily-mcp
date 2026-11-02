@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { sign } from "jsonwebtoken";
-import { verifyMcpToken, requireScope, McpAuthError } from "../src/auth/verify";
+import { verifyMcpToken, requireScope, McpAuthError } from "../src/auth/verify.js";
 
 const SECRET = "test-secret";
 const RESOURCE = "https://mcp.fitaily.com/mcp";

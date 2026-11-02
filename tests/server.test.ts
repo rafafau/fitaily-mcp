@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { sign } from "jsonwebtoken";
 import type { Express } from "express";
@@ -21,6 +21,10 @@ function bearer(overrides: Record<string, unknown> = {}): string {
 }
 
 let app: Express;
+
+function parseRpc(res: { text: string; body: any }): any {
+  return res.text && res.text.includes("data: ") ? JSON.parse(res.text.split("data: ")[1]) : res.body;
+}
 
 beforeAll(async () => {
   app = (await import("../src/server")).default;
@@ -110,7 +114,53 @@ describe("POST /mcp auth", () => {
         },
       })
       .expect(200);
-    const body = res.text.includes("data: ") ? JSON.parse(res.text.split("data: ")[1]) : res.body;
+    const body = parseRpc(res);
     expect(body.result.serverInfo.name).toBe("fitaily");
+  });
+});
+
+describe("tools over the wire", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("advertises an output schema for every tool", async () => {
+    const res = await request(app)
+      .post("/mcp")
+      .set("Authorization", bearer())
+      .set("Accept", "application/json, text/event-stream")
+      .send({ jsonrpc: "2.0", id: 2, method: "tools/list" })
+      .expect(200);
+    const body = parseRpc(res);
+    expect(body.result.tools).toHaveLength(66);
+    for (const tool of body.result.tools) {
+      expect(tool.outputSchema, tool.name).toMatchObject({ type: "object" });
+    }
+  });
+
+  it("returns structuredContent alongside the text block", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ data: { dailyCaloriesGoal: 2200, proteinGoal: 150 } }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+      ),
+    );
+    const res = await request(app)
+      .post("/mcp")
+      .set("Authorization", bearer())
+      .set("Accept", "application/json, text/event-stream")
+      .send({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: "get_nutrition_goals", arguments: {} },
+      })
+      .expect(200);
+    const body = parseRpc(res);
+    expect(body.result.isError).not.toBe(true);
+    expect(body.result.structuredContent).toEqual({ dailyCaloriesGoal: 2200, proteinGoal: 150 });
+    expect(JSON.parse(body.result.content[0].text)).toEqual(body.result.structuredContent);
   });
 });

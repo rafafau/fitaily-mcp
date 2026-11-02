@@ -1,14 +1,17 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import { fitailyGet, fitailySend } from "../api/fitaily-client";
-import type { McpAuth } from "../auth/verify";
-import { requireScope } from "../auth/verify";
+import { fitailyGet, fitailySend } from "../api/fitaily-client.js";
+import { z } from "zod";
+import { listOf } from "../api/types.js";
+import type { McpAuth } from "../auth/verify.js";
+import { requireScope } from "../auth/verify.js";
 import {
   ListDietPlansInput,
   GetDietPlanInput,
   GenerateDietPlanInput,
   ActivateDietPlanInput,
   ExtendDietPlanInput,
-} from "../schemas/common";
+} from "../schemas/common.js";
+import { JsonObjectOutput, jsonResult } from "../utils/result.js";
 
 interface PlanMeal {
   id?: string;
@@ -120,28 +123,22 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "The user's diet plans (or public templates with tab=discover). Returns headline targets only — call get_diet_plan for the day-by-day meals.",
       inputSchema: ListDietPlansInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof ListDietPlansInput>) => {
       requireScope(auth, "nutrition:read");
-      const res = await fitailyGet<any>(accessToken, "/diet-plans", {
+      const res = await fitailyGet<unknown>(accessToken, "/diet-plans", {
         tab: input.tab ?? "mine",
         search: input.search,
       });
-      const plans: DietPlan[] = res?.plans ?? res?.data ?? (Array.isArray(res) ? res : []);
-      const filtered = input.activeOnly ? (plans as DietPlan[]).filter((p) => p.isActive) : (plans as DietPlan[]);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              tab: input.tab ?? "mine",
-              count: filtered.length,
-              plans: filtered.map(trimPlan),
-            }),
-          },
-        ],
-      };
+      const plans = listOf<DietPlan>(res, "plans", "data");
+      const filtered = input.activeOnly ? plans.filter((p) => p.isActive) : plans;
+      return jsonResult({
+        tab: input.tab ?? "mine",
+        count: filtered.length,
+        plans: filtered.map(trimPlan),
+      });
     },
   );
 
@@ -151,21 +148,21 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "Full diet plan by id: day-by-day meals with per-meal and per-day macro totals. Use maxDays to keep long plans readable.",
       inputSchema: GetDietPlanInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof GetDietPlanInput>) => {
       requireScope(auth, "nutrition:read");
-      const res = await fitailyGet<any>(accessToken, `/diet-plans/${input.id}`);
-      const plan: DietPlan | undefined = res?.plan ?? res?.data ?? res;
+      const res = await fitailyGet<DietPlan | { plan?: DietPlan; data?: DietPlan }>(
+        accessToken,
+        `/diet-plans/${input.id}`,
+      );
+      const plan: DietPlan | undefined =
+        "plan" in res ? res.plan : "data" in res ? res.data : (res as DietPlan | undefined);
       if (!plan?.id) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: "Diet plan not found" }) }],
-          isError: true,
-        };
+        return jsonResult({ error: "Diet plan not found" }, { isError: true });
       }
-      return {
-        content: [{ type: "text", text: JSON.stringify(expandPlan(plan, input.maxDays ?? 7)) }],
-      };
+      return jsonResult(expandPlan(plan, input.maxDays ?? 7));
     },
   );
 
@@ -175,11 +172,12 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "WRITE: generate a new diet plan and make it the active one (replaces the previous plan). Needs at least 3 recipes in the library or the public catalog — the catalog alone is enough. Templates: balanced, highprotein, lowcarb, keto, vegan, vegetarian. Confirm targets with the user first.",
       inputSchema: GenerateDietPlanInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof GenerateDietPlanInput>) => {
       requireScope(auth, "nutrition:write");
-      const res = await fitailySend<any>(accessToken, "POST", "/diet-plans/generate", {
+      const res = await fitailySend<unknown>(accessToken, "POST", "/diet-plans/generate", {
         template: input.template ?? "balanced",
         calorieTarget: input.calorieTarget ?? 2000,
         proteinTarget: input.proteinTarget,
@@ -194,15 +192,10 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
         plannedStartDate: input.plannedStartDate,
         seed: input.seed ?? 1,
       });
-      const plan: DietPlan | undefined = res?.full ?? res?.plan ?? res?.data ?? res;
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(plan?.id ? expandPlan(plan, 7) : { created: true }),
-          },
-        ],
-      };
+      const raw = res as DietPlan | { full?: DietPlan; plan?: DietPlan; data?: DietPlan };
+      const plan: DietPlan | undefined =
+        "full" in raw ? raw.full : "plan" in raw ? raw.plan : "data" in raw ? raw.data : (raw as DietPlan | undefined);
+      return jsonResult(plan?.id ? expandPlan(plan, 7) : { created: true });
     },
   );
 
@@ -212,25 +205,27 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "WRITE: make an existing diet plan the active one, optionally from a given start date. Confirm with the user first.",
       inputSchema: ActivateDietPlanInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof ActivateDietPlanInput>) => {
       requireScope(auth, "nutrition:write");
-      const res = await fitailySend<any>(accessToken, "POST", `/diet-plans/${input.id}/activate`, {
+      const res = await fitailySend<unknown>(accessToken, "POST", `/diet-plans/${input.id}/activate`, {
         startDate: input.startDate,
       });
-      const plan: DietPlan | undefined = res?.updated ?? res?.plan ?? res?.data ?? res;
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              activated: plan?.id ?? input.id,
-              start_date: plan?.startDate ?? input.startDate ?? null,
-            }),
-          },
-        ],
-      };
+      const raw = res as DietPlan | { updated?: DietPlan; plan?: DietPlan; data?: DietPlan };
+      const plan: DietPlan | undefined =
+        "updated" in raw
+          ? raw.updated
+          : "plan" in raw
+            ? raw.plan
+            : "data" in raw
+              ? raw.data
+              : (raw as DietPlan | undefined);
+      return jsonResult({
+        activated: plan?.id ?? input.id,
+        start_date: plan?.startDate ?? input.startDate ?? null,
+      });
     },
   );
 
@@ -240,26 +235,22 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "WRITE: extend a diet plan by N more days (reuses the plan's template and targets). Confirm with the user first.",
       inputSchema: ExtendDietPlanInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof ExtendDietPlanInput>) => {
       requireScope(auth, "nutrition:write");
-      const res = await fitailySend<any>(accessToken, "PATCH", `/diet-plans/${input.id}/extend`, {
+      const res = await fitailySend<unknown>(accessToken, "PATCH", `/diet-plans/${input.id}/extend`, {
         additionalDays: input.additionalDays,
       });
-      const plan: DietPlan | undefined = res?.plan ?? res?.data ?? res;
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              id: plan?.id ?? input.id,
-              duration_days: res?.durationDays ?? plan?.durationDays ?? null,
-              days_total: plan?.days?.length ?? null,
-            }),
-          },
-        ],
-      };
+      const raw = res as DietPlan | { plan?: DietPlan; data?: DietPlan };
+      const plan: DietPlan | undefined =
+        "plan" in raw ? raw.plan : "data" in raw ? raw.data : (raw as DietPlan | undefined);
+      return jsonResult({
+        id: plan?.id ?? input.id,
+        duration_days: (raw as DietPlan | undefined)?.durationDays ?? plan?.durationDays ?? null,
+        days_total: plan?.days?.length ?? null,
+      });
     },
   );
 }

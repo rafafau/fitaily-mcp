@@ -1,5 +1,5 @@
-import { verify } from "jsonwebtoken";
-import { mcpResourceUrl, oauthIssuer } from "../config";
+import JWT from "jsonwebtoken";
+import { mcpResourceUrl, oauthIssuer } from "../config.js";
 
 export interface McpAuth {
   userId: string;
@@ -15,6 +15,16 @@ export class McpAuthError extends Error {
   }
 }
 
+/** Shape of a Fitaily access JWT payload; everything else is ignored. */
+interface DecodedToken {
+  userId?: string;
+  client_id?: string;
+  scope?: string;
+  aud?: string | string[];
+  iss?: string;
+  [key: string]: unknown;
+}
+
 /** Verify the OAuth access JWT, algorithm, audience and expiry. Never trusts model input. */
 export function verifyMcpToken(bearer: string | undefined): McpAuth {
   if (!bearer || !bearer.startsWith("Bearer ")) {
@@ -25,7 +35,7 @@ export function verifyMcpToken(bearer: string | undefined): McpAuth {
   try {
     // Pin HS256: the backend signs with HS256 and a shared secret, so accepting
     // other algorithms (or `none`) would widen the attack surface for free.
-    const decoded = verify(bearer.slice(7), secret, { algorithms: ["HS256"] }) as any;
+    const decoded = JWT.verify(bearer.slice(7), secret, { algorithms: ["HS256"] }) as DecodedToken;
     const audiences = Array.isArray(decoded.aud) ? decoded.aud : decoded.aud ? [decoded.aud] : [];
     if (!audiences.includes(mcpResourceUrl())) {
       throw new McpAuthError(403, "Token audience mismatch");

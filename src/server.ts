@@ -15,20 +15,20 @@ import {
   rateLimitMax,
   rateLimitWindowMs,
   trustProxy,
-} from "./config";
-import { McpAuthError, verifyMcpToken, type McpAuth } from "./auth/verify";
-import { registerNutritionTools } from "./tools/nutrition";
-import { registerFoodTools } from "./tools/foods";
-import { registerWaterTools } from "./tools/water";
-import { registerTrainingTools } from "./tools/training";
-import { registerProgressTools } from "./tools/progress";
-import { registerRecipeTools } from "./tools/recipes";
-import { registerDietPlanTools } from "./tools/dietPlans";
-import { registerProfileTools } from "./tools/profile";
-import { registerStatsTools } from "./tools/stats";
-import { registerStrengthStatsTools } from "./tools/strengthStats";
-import { registerPantryTools } from "./tools/pantry";
-import { registerExerciseTools } from "./tools/exercises";
+} from "./config.js";
+import { McpAuthError, verifyMcpToken, type McpAuth } from "./auth/verify.js";
+import { registerNutritionTools } from "./tools/nutrition.js";
+import { registerFoodTools } from "./tools/foods.js";
+import { registerWaterTools } from "./tools/water.js";
+import { registerTrainingTools } from "./tools/training.js";
+import { registerProgressTools } from "./tools/progress.js";
+import { registerRecipeTools } from "./tools/recipes.js";
+import { registerDietPlanTools } from "./tools/dietPlans.js";
+import { registerProfileTools } from "./tools/profile.js";
+import { registerStatsTools } from "./tools/stats.js";
+import { registerStrengthStatsTools } from "./tools/strengthStats.js";
+import { registerPantryTools } from "./tools/pantry.js";
+import { registerExerciseTools } from "./tools/exercises.js";
 
 type AuthedRequest = Request & { mcpAuth?: McpAuth; accessToken?: string };
 
@@ -111,8 +111,9 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
     authed.accessToken = req.headers.authorization!.slice(7);
     next();
   } catch (err) {
-    const status = err instanceof McpAuthError ? err.status : 401;
-    const message = err instanceof Error ? err.message : "Unauthorized";
+    const e = err as Error;
+    const status = e instanceof McpAuthError ? (e as McpAuthError).status : 401;
+    const message = e instanceof Error ? e.message : "Unauthorized";
     res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${resourceMetadataUrl(req)}"`);
     res.status(status).json({ error: message });
   }

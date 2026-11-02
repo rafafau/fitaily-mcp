@@ -1,5 +1,5 @@
-import app from "./server";
-import { SERVER_VERSION, mcpResourceUrl, port } from "./config";
+import app from "./server.js";
+import { SERVER_VERSION, mcpResourceUrl, port } from "./config.js";
 
 if (process.env.NODE_ENV !== "test") {
   if (!process.env.JWT_SECRET) {

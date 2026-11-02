@@ -1,8 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import { fitailyGet } from "../api/fitaily-client";
-import type { McpAuth } from "../auth/verify";
-import { requireScope } from "../auth/verify";
-import { SearchExercisesInput, GetExerciseInput } from "../schemas/common";
+import { fitailyGet } from "../api/fitaily-client.js";
+import { z } from "zod";
+import { listOf } from "../api/types.js";
+import type { McpAuth } from "../auth/verify.js";
+import { requireScope } from "../auth/verify.js";
+import { SearchExercisesInput, GetExerciseInput } from "../schemas/common.js";
+import { JsonObjectOutput, jsonResult } from "../utils/result.js";
 
 interface RawExercise {
   id: string;
@@ -38,26 +41,22 @@ export function registerExerciseTools(server: McpServer, auth: McpAuth, accessTo
       description:
         "Search the Fitaily exercise catalog (name, category, equipment). Returns exerciseId values used when building a workout plan. Call this before create_workout_plan.",
       inputSchema: SearchExercisesInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof SearchExercisesInput>) => {
       requireScope(auth, "training:read");
-      const res = await fitailyGet<any>(accessToken, "/exercises/global", {
+      const res = await fitailyGet<
+        RawExercise[] | { exercises?: RawExercise[]; items?: RawExercise[]; data?: RawExercise[] }
+      >(accessToken, "/exercises/global", {
         search: input.search,
         category: input.category,
         equipment: input.equipment,
       });
-      const list = Array.isArray(res) ? res : res.exercises || res.items || res.data || [];
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              exercises: (list as RawExercise[]).slice(0, input.limit ?? 20).map(trimExercise),
-            }),
-          },
-        ],
-      };
+      const list = listOf<RawExercise>(res, "exercises", "items", "data");
+      return jsonResult({
+        exercises: (list as RawExercise[]).slice(0, input.limit ?? 20).map(trimExercise),
+      });
     },
   );
 
@@ -66,12 +65,13 @@ export function registerExerciseTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "Single exercise by id (category, muscle group, equipment, type).",
       inputSchema: GetExerciseInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof GetExerciseInput>) => {
       requireScope(auth, "training:read");
       const e = await fitailyGet<RawExercise>(accessToken, `/exercises/${input.id}`);
-      return { content: [{ type: "text", text: JSON.stringify(trimExercise(e)) }] };
+      return jsonResult(trimExercise(e));
     },
   );
 }

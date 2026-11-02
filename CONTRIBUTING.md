@@ -24,8 +24,11 @@ Before opening a PR, all of these must pass. CI runs the same commands on Node 2
    model could misread).
 2. Register the tool in the matching `src/tools/*.ts` file:
    - a description that says **when** to call it and what it returns,
+   - `outputSchema: JsonObjectOutput` (shared, imported from `src/utils/result.ts`),
    - `annotations` (`readOnlyHint`, `destructiveHint`, `idempotentHint`),
-   - `requireScope(auth, "...")` as the first statement of the handler.
+   - `requireScope(auth, "...")` as the first statement of the handler,
+   - return `jsonResult(payload)` (or `jsonResult(payload, { isError: true })`) — never
+     hand-build `content` blocks, or `structuredContent` and the text block will drift.
 3. Add the row to `docs/tools.md` — `tests/docs.test.ts` fails if a tool is missing or
    orphaned.
 4. Cover the happy path and the scope check in `tests/tools.test.ts`.

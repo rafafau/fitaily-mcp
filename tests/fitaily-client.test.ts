@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { fitailyGet, FitailyApiError } from "../src/api/fitaily-client";
+import { fitailyGet, FitailyApiError } from "../src/api/fitaily-client.js";
 
 afterEach(() => vi.unstubAllGlobals());
 

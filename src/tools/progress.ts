@@ -1,15 +1,17 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { fitailyGet, fitailySend } from "../api/fitaily-client";
-import type { McpAuth } from "../auth/verify";
-import { requireScope } from "../auth/verify";
+import { fitailyGet, fitailySend } from "../api/fitaily-client.js";
+import { listOf, type CreatedEntity, type Goal, type Measurement, type TrendPoint } from "../api/types.js";
+import type { McpAuth } from "../auth/verify.js";
+import { requireScope } from "../auth/verify.js";
 import {
   ProgressSummaryInput,
   MeasurementHistoryInput,
   AddMeasurementInput,
   AddGoalInput,
   UpdateGoalInput,
-} from "../schemas/common";
+} from "../schemas/common.js";
+import { JsonObjectOutput, jsonResult } from "../utils/result.js";
 
 export function registerProgressTools(server: McpServer, auth: McpAuth, accessToken: string): void {
   server.registerTool(
@@ -17,35 +19,31 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "Weight trend and latest measurement. Defaults to the last 30 days.",
       inputSchema: ProgressSummaryInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof ProgressSummaryInput>) => {
       requireScope(auth, "progress:read");
       const to = input.to || new Date().toISOString().slice(0, 10);
       const from = input.from || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
       const [trends, latest] = await Promise.all([
-        fitailyGet<any>(accessToken, "/measurements/trends", { startDate: from, endDate: to }).catch(() => ({
+        fitailyGet<{ trends?: TrendPoint[] }>(accessToken, "/measurements/trends", {
+          startDate: from,
+          endDate: to,
+        }).catch(() => ({
           trends: [],
         })),
-        fitailyGet<any>(accessToken, "/measurements/latest").catch(() => null),
+        fitailyGet<Measurement | null>(accessToken, "/measurements/latest").catch(() => null),
       ]);
-      const points = trends.trends || trends || [];
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              from,
-              to,
-              weight_kg: (Array.isArray(points) ? points : [])
-                .map((p: any) => ({ date: p.date, weight: p.weight }))
-                .filter((p: any) => p.weight != null),
-              latest_weight_kg: latest?.weight ?? null,
-              latest_date: latest?.date ?? null,
-            }),
-          },
-        ],
-      };
+      return jsonResult({
+        from,
+        to,
+        weight_kg: (trends.trends ?? [])
+          .map((p) => ({ date: p.date, weight: p.weight }))
+          .filter((p) => p.weight != null),
+        latest_weight_kg: latest?.weight ?? null,
+        latest_date: latest?.date ?? null,
+      });
     },
   );
 
@@ -54,31 +52,25 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "Body measurements (weight, body fat, muscle, circumferences) over a range.",
       inputSchema: MeasurementHistoryInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
-    async (input) => {
+    async (input: z.infer<typeof MeasurementHistoryInput>) => {
       requireScope(auth, "progress:read");
       const params: Record<string, string | number | undefined> = { limit: input.limit ?? 30 };
       if (input.from) params.startDate = input.from;
       if (input.to) params.endDate = input.to;
-      const res = await fitailyGet<any>(accessToken, "/measurements", params);
-      const list = Array.isArray(res) ? res : res.measurements || res.items || res.entries || [];
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              measurements: (list as any[]).slice(0, input.limit ?? 30).map((m: any) => ({
-                id: m.id,
-                date: m.date,
-                weight_kg: m.weight ?? null,
-                body_fat_pct: m.bodyFat ?? null,
-                muscle_kg: m.muscleMassKg ?? m.muscleMass ?? null,
-              })),
-            }),
-          },
-        ],
-      };
+      const res = await fitailyGet<unknown>(accessToken, "/measurements", params);
+      const list = listOf<Measurement>(res, "measurements", "items", "entries");
+      return jsonResult({
+        measurements: list.slice(0, input.limit ?? 30).map((m) => ({
+          id: m.id,
+          date: m.date,
+          weight_kg: m.weight ?? null,
+          body_fat_pct: m.bodyFat ?? null,
+          muscle_kg: m.muscleMassKg ?? m.muscleMass ?? null,
+        })),
+      });
     },
   );
 
@@ -87,31 +79,25 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "User goals with current vs target values.",
       inputSchema: z.object({}),
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: true },
     },
     async () => {
       requireScope(auth, "progress:read");
-      const res = await fitailyGet<any>(accessToken, "/goals", {});
-      const list = Array.isArray(res) ? res : res.goals || res.items || [];
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              goals: (list as any[]).map((g: any) => ({
-                id: g.id,
-                type: g.type,
-                name: g.name,
-                current: g.currentValue ?? null,
-                target: g.targetValue,
-                unit: g.unit ?? null,
-                active: g.isActive,
-                completed: g.isCompleted,
-              })),
-            }),
-          },
-        ],
-      };
+      const res = await fitailyGet<unknown>(accessToken, "/goals", {});
+      const list = listOf<Goal>(res, "goals", "items");
+      return jsonResult({
+        goals: list.map((g) => ({
+          id: g.id,
+          type: g.type,
+          name: g.name,
+          current: g.currentValue ?? null,
+          target: g.targetValue,
+          unit: g.unit ?? null,
+          active: g.isActive,
+          completed: g.isCompleted,
+        })),
+      });
     },
   );
 
@@ -120,19 +106,13 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "WRITE: log a body measurement (weight and/or composition). Confirm with the user first.",
       inputSchema: AddMeasurementInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof AddMeasurementInput>) => {
       requireScope(auth, "progress:write");
-      const created = await fitailySend<any>(accessToken, "POST", "/measurements", input);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ id: (created as any).id ?? null, date: (created as any).date ?? null }),
-          },
-        ],
-      };
+      const created = await fitailySend<CreatedEntity>(accessToken, "POST", "/measurements", input);
+      return jsonResult({ id: created.id ?? null, date: created.date ?? null });
     },
   );
 
@@ -141,14 +121,13 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "WRITE: create a goal (weight, workouts, custom). Confirm with the user first.",
       inputSchema: AddGoalInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof AddGoalInput>) => {
       requireScope(auth, "progress:write");
-      const created = await fitailySend<any>(accessToken, "POST", "/goals", input);
-      return {
-        content: [{ type: "text", text: JSON.stringify({ id: (created as any).id ?? null, name: input.name }) }],
-      };
+      const created = await fitailySend<CreatedEntity>(accessToken, "POST", "/goals", input);
+      return jsonResult({ id: created.id ?? null, name: input.name });
     },
   );
 
@@ -157,15 +136,14 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
     {
       description: "WRITE: update a goal (values, completion). Confirm with the user first.",
       inputSchema: UpdateGoalInput,
+      outputSchema: JsonObjectOutput,
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async (input) => {
+    async (input: z.infer<typeof UpdateGoalInput>) => {
       requireScope(auth, "progress:write");
       const { id, ...patch } = input;
-      const updated = await fitailySend<any>(accessToken, "PUT", `/goals/${id}`, patch);
-      return {
-        content: [{ type: "text", text: JSON.stringify({ id: (updated as any).id ?? id }) }],
-      };
+      const updated = await fitailySend<CreatedEntity>(accessToken, "PUT", `/goals/${id}`, patch);
+      return jsonResult({ id: updated.id ?? id });
     },
   );
 }

@@ -24,6 +24,9 @@ Fitaily nutrition, training and progress API as **66 tools** over Streamable HTT
 - **Thin.** Backend failures are classified as unauthorized (`401`/`403`) or
   unreachable/error (`502`) and returned as short tool errors; response bodies are never
   forwarded to the model.
+- **Structured results.** Every tool declares an `outputSchema` and returns the same JSON in
+  `structuredContent` and in `content[0].text`, so typed clients can parse results while
+  text-only clients keep working.
 
 ## What it is not
 
@@ -285,16 +288,18 @@ Operational notes:
 - The default rate limit is intentionally generous (300 req/min/IP). Tighten it for public
   deployments if your clients make many parallel tool calls.
 
-## Known limitations
+## Design decisions
 
-- Tool results are text-only JSON (`content[].text`); there is no `outputSchema` /
-  `structuredContent` yet.
-- No streaming progress notifications and no long-running jobs — every call is a single
-  backend round-trip.
-- The tool handlers still carry some `any` at the API boundary; types will be tightened
-  incrementally.
-- The repository is CommonJS today. The MCP SDK also ships ESM; switching is a separate
-  change.
+- **Generic `outputSchema`.** Every tool advertises `outputSchema: { type: "object" }` rather than 66
+  per-tool field schemas. Tools return trimmed, purpose-built projections, and the real consumer benefit
+  is `structuredContent` mirroring `content[0].text`. A per-tool schema would duplicate projections and
+  break when the backend adds fields.
+- **No streaming progress notifications.** Every call is a single backend round-trip (typically
+  100–800 ms). If a future tool (e.g. AI diet plan generation) needs minutes, progress notifications
+  can be added then without changing today's clients.
+- **ESM modules.** The package is `"type": "module"` and compiled with `module: NodeNext`. This matches
+  the modern Node/MCP ecosystem; the Docker image builds the TypeScript inside the container and ships
+  only `dist/`.
 
 ## Contributing
 

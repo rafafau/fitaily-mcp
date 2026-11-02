@@ -25,6 +25,10 @@ aggregates and forecasts.
   pagination fields instead of asking for hundreds of rows.
 - Write tools return the created/updated id so a follow-up call does not have
   to guess.
+- Every result is a JSON object returned twice: as `content[0].text` (the wire
+  format for text-only clients) and as `structuredContent` for clients that
+  parse tool output. All tools share one `outputSchema` (`type: object`)
+  because each returns its own trimmed projection.
 - Errors surface as tool error text; upstream failures are normalized to a short message
   (unreachable, unauthorized, backend error) and the backend response body is never
   forwarded to the model.
