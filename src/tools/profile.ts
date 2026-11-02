@@ -6,7 +6,7 @@ import type { McpAuth } from "../auth/verify.js";
 import { requireScope } from "../auth/verify.js";
 import { today } from "../utils/dates.js";
 import { JsonObjectOutput, jsonResult } from "../utils/result.js";
-import { cmToFtIn, convertWeight, getUserUnits, isImperial, kgToLbs } from "../utils/units.js";
+import { cmToFtIn, convertWeight, isImperial } from "../utils/units.js";
 
 /**
  * User context: profile, coach plan and dashboard headline numbers.
