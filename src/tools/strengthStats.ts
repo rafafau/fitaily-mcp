@@ -13,6 +13,7 @@ import { requireScope } from "../auth/verify.js";
 import { ExerciseHistoryInput, MuscleActivationInput } from "../schemas/common.js";
 import { daysAgo } from "../utils/dates.js";
 import { JsonObjectOutput, jsonResult } from "../utils/result.js";
+import { convertWeight, getUserUnits, isImperial } from "../utils/units.js";
 
 function round(value: unknown, digits = 1): number | null {
   return typeof value === "number" && Number.isFinite(value) ? Math.round(value * 10 ** digits) / 10 ** digits : null;
@@ -39,8 +40,11 @@ export function registerStrengthStatsTools(server: McpServer, auth: McpAuth, acc
         "/exercises/records/all",
       );
       const list = listOf<ExerciseRecord>(res, "records");
+      const units = await getUserUnits(accessToken);
+      const imperial = isImperial(units);
       return jsonResult({
         count: list.length,
+        units,
         records: list.map((r) => ({
           exercise_id: r.exerciseId ?? null,
           exercise: r.exerciseName ?? null,
@@ -49,7 +53,9 @@ export function registerStrengthStatsTools(server: McpServer, auth: McpAuth, acc
           unit: r.unit ?? null,
           reps: r.reps ?? null,
           weight_kg: round(r.weight, 2),
+          weight_lbs: imperial ? convertWeight(round(r.weight, 2), true) : null,
           previous_value: round(r.previousValue, 2),
+          previous_value_lbs: imperial ? convertWeight(round(r.previousValue, 2), true) : null,
           achieved_at: r.achievedAt ?? null,
         })),
       });
@@ -73,24 +79,33 @@ export function registerStrengthStatsTools(server: McpServer, auth: McpAuth, acc
         { months: input.months ?? 12 },
       );
       const sessions = listOf<ExerciseSession>(res, "sessions");
+      const units = await getUserUnits(accessToken);
+      const imperial = isImperial(units);
       return jsonResult({
         exercise_id: input.exerciseId,
         months: input.months ?? 12,
+        units,
         sessions: sessions.map((s) => ({
           date: s.date ?? s.workoutDate ?? null,
           workout: s.workoutName ?? null,
           sets: (s.sets ?? []).map((set: ExerciseSessionSet) => ({
             reps: set.reps ?? null,
             weight_kg: round(set.weight, 2),
+            weight_lbs: imperial ? convertWeight(round(set.weight, 2), true) : null,
             time_s: set.time ?? null,
             one_rm: round(set.estimated1RM, 1),
+            one_rm_lbs: imperial ? convertWeight(round(set.estimated1RM, 1), true) : null,
             pr: set.isPersonalRecord ?? null,
           })),
           max_weight_kg: round(s.maxWeight, 2),
+          max_weight_lbs: imperial ? convertWeight(round(s.maxWeight, 2), true) : null,
           total_reps: s.totalReps ?? null,
           volume_kg: round(s.sessionVolume ?? s.totalVolume, 1),
-          best_set_volume: round(s.bestSetVolume, 1),
-          best_one_rm: round(s.best1RM, 1),
+          volume_lbs: imperial ? convertWeight(round(s.sessionVolume ?? s.totalVolume, 1), true) : null,
+          best_set_volume_kg: round(s.bestSetVolume, 1),
+          best_set_volume_lbs: imperial ? convertWeight(round(s.bestSetVolume, 1), true) : null,
+          best_one_rm_kg: round(s.best1RM, 1),
+          best_one_rm_lbs: imperial ? convertWeight(round(s.best1RM, 1), true) : null,
         })),
       });
     },

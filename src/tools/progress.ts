@@ -12,6 +12,7 @@ import {
   UpdateGoalInput,
 } from "../schemas/common.js";
 import { JsonObjectOutput, jsonResult } from "../utils/result.js";
+import { convertWeight, getUserUnits, isImperial } from "../utils/units.js";
 
 export function registerProgressTools(server: McpServer, auth: McpAuth, accessToken: string): void {
   server.registerTool(
@@ -35,13 +36,22 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
         })),
         fitailyGet<Measurement | null>(accessToken, "/measurements/latest").catch(() => null),
       ]);
+      const units = await getUserUnits(accessToken);
+      const imperial = isImperial(units);
       return jsonResult({
         from,
         to,
+        units,
         weight_kg: (trends.trends ?? [])
           .map((p) => ({ date: p.date, weight: p.weight }))
           .filter((p) => p.weight != null),
+        weight_lbs: imperial
+          ? (trends.trends ?? [])
+              .map((p) => ({ date: p.date, weight: convertWeight(p.weight, true) }))
+              .filter((p) => p.weight != null)
+          : null,
         latest_weight_kg: latest?.weight ?? null,
+        latest_weight_lbs: imperial ? convertWeight(latest?.weight ?? null, true) : null,
         latest_date: latest?.date ?? null,
       });
     },
@@ -62,11 +72,14 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
       if (input.to) params.endDate = input.to;
       const res = await fitailyGet<unknown>(accessToken, "/measurements", params);
       const list = listOf<Measurement>(res, "measurements", "items", "entries");
+      const units = await getUserUnits(accessToken);
+      const imperial = isImperial(units);
       return jsonResult({
         measurements: list.slice(0, input.limit ?? 30).map((m) => ({
           id: m.id,
           date: m.date,
           weight_kg: m.weight ?? null,
+          weight_lbs: imperial ? convertWeight(m.weight ?? null, true) : null,
           body_fat_pct: m.bodyFat ?? null,
           muscle_kg: m.muscleMassKg ?? m.muscleMass ?? null,
         })),

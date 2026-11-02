@@ -6,6 +6,7 @@ import type { McpAuth } from "../auth/verify.js";
 import { requireScope } from "../auth/verify.js";
 import { today } from "../utils/dates.js";
 import { JsonObjectOutput, jsonResult } from "../utils/result.js";
+import { cmToFtIn, convertWeight, getUserUnits, isImperial, kgToLbs } from "../utils/units.js";
 
 /**
  * User context: profile, coach plan and dashboard headline numbers.
@@ -32,20 +33,25 @@ export function registerProfileTools(server: McpServer, auth: McpAuth, accessTok
         birthDate && !Number.isNaN(birthDate.getTime())
           ? Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 86400000))
           : null;
+      const units = profile?.units ?? "metric";
+      const imperial = isImperial(units);
       return jsonResult({
         id: profile?.id ?? null,
         display_name: profile?.displayName ?? null,
         email: profile?.email ?? null,
         language: profile?.language ?? null,
-        units: profile?.units ?? null,
+        units,
         weight_kg: latest?.weight ?? null,
+        weight_lbs: imperial ? convertWeight(latest?.weight ?? null, true) : null,
         weight_date: latest?.date ?? null,
         height_cm: profile?.height ?? null,
+        height_ft_in: imperial ? cmToFtIn(profile?.height ?? null) : null,
         age,
         gender: profile?.gender ?? null,
         activity_level: profile?.activityLevel ?? null,
         weight_direction: profile?.weightDirection ?? null,
         target_weight_kg: profile?.targetWeight ?? null,
+        target_weight_lbs: imperial ? convertWeight(profile?.targetWeight ?? null, true) : null,
         goals: {
           kcal: profile?.dailyCaloriesGoal ?? null,
           protein_g: profile?.proteinGoal ?? null,
