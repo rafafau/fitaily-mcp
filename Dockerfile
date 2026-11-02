@@ -13,7 +13,7 @@ WORKDIR /app
 ENV NODE_ENV=production PORT=3091
 RUN npm install -g pnpm@10
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile && pnpm store prune
+RUN pnpm install --prod --ignore-scripts
 COPY --from=builder /build/dist ./dist
 COPY LICENSE NOTICE ./
 # Run as the unprivileged user that ships with the node image.
