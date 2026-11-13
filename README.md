@@ -299,7 +299,7 @@ Operational notes:
 
 ## Design decisions
 
-- **Generic `outputSchema`.** Every tool advertises `outputSchema: { type: "object" }` rather than 66
+- **Generic `outputSchema`.** Every tool advertises `outputSchema: { type: "object" }` rather than 70
   per-tool field schemas. Tools return trimmed, purpose-built projections, and the real consumer benefit
   is `structuredContent` mirroring `content[0].text`. A per-tool schema would duplicate projections and
   break when the backend adds fields.
