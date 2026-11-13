@@ -6,7 +6,12 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import {
   SERVER_NAME,
+  SERVER_DESCRIPTION,
+  SERVER_ICONS,
+  SERVER_INSTRUCTIONS,
+  SERVER_TITLE,
   SERVER_VERSION,
+  WEBSITE_URL,
   accessLogEnabled,
   bodyLimit,
   corsOrigin,
@@ -17,6 +22,7 @@ import {
   trustProxy,
 } from "./config.js";
 import { McpAuthError, verifyMcpToken, type McpAuth } from "./auth/verify.js";
+import { createMcpUserLimiter } from "./middleware/mcp-user-limiter.js";
 import { registerNutritionTools } from "./tools/nutrition.js";
 import { registerFoodTools } from "./tools/foods.js";
 import { registerWaterTools } from "./tools/water.js";
@@ -29,6 +35,8 @@ import { registerStatsTools } from "./tools/stats.js";
 import { registerStrengthStatsTools } from "./tools/strengthStats.js";
 import { registerPantryTools } from "./tools/pantry.js";
 import { registerExerciseTools } from "./tools/exercises.js";
+import { registerProductTools } from "./tools/products.js";
+import { registerPrompts } from "./prompts/starters.js";
 
 type AuthedRequest = Request & { mcpAuth?: McpAuth; accessToken?: string };
 
@@ -126,18 +134,29 @@ const mcpLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests" },
 });
+const mcpUserLimiter = createMcpUserLimiter();
 
-// Stateless Streamable HTTP: rate limit → auth → parse body → one server+transport per request.
+// Stateless Streamable HTTP: IP ceiling → auth → per-user limit → parse body → one server+transport per request.
 // Auth runs before JSON parsing so unauthenticated clients cannot make the
 // process buffer a megabyte of body per request.
-app.post("/mcp", mcpLimiter, authenticate, express.json({ limit: bodyLimit() }), async (req, res) => {
+app.post("/mcp", mcpLimiter, authenticate, mcpUserLimiter, express.json({ limit: bodyLimit() }), async (req, res) => {
   const { mcpAuth: auth, accessToken } = req as AuthedRequest;
   if (!auth || !accessToken) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   try {
-    const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { capabilities: { tools: {} } });
+    const server = new McpServer(
+      {
+        name: SERVER_NAME,
+        version: SERVER_VERSION,
+        title: SERVER_TITLE,
+        description: SERVER_DESCRIPTION,
+        websiteUrl: WEBSITE_URL,
+        icons: SERVER_ICONS,
+      },
+      { capabilities: { tools: {}, prompts: {} }, instructions: SERVER_INSTRUCTIONS },
+    );
     registerNutritionTools(server, auth, accessToken);
     registerFoodTools(server, auth, accessToken);
     registerWaterTools(server, auth, accessToken);
@@ -150,6 +169,8 @@ app.post("/mcp", mcpLimiter, authenticate, express.json({ limit: bodyLimit() }),
     registerStrengthStatsTools(server, auth, accessToken);
     registerPantryTools(server, auth, accessToken);
     registerExerciseTools(server, auth, accessToken);
+    registerProductTools(server, auth, accessToken);
+    registerPrompts(server);
     const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);

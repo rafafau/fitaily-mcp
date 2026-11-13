@@ -58,6 +58,90 @@ export const BarcodeInput = z.object({
   code: z.string().min(4).max(32),
 });
 
+const ProductNutritionFields = {
+  caloriesPer100: z.number().min(0).max(1000),
+  proteinPer100: z.number().min(0).max(100),
+  carbsPer100: z.number().min(0).max(100),
+  fatPer100: z.number().min(0).max(100),
+  sugarPer100: z.number().min(0).max(100).optional(),
+  fiberPer100: z.number().min(0).max(100).optional(),
+  saltPer100: z.number().min(0).max(100).optional(),
+  saturatedFatPer100: z.number().min(0).max(100).optional(),
+  addedSugarsPer100: z.number().min(0).max(100).optional(),
+  starchPer100: z.number().min(0).max(100).optional(),
+  sodiumPer100: z.number().min(0).max(100000).optional(),
+  vitaminAPer100: z.number().min(0).max(100000).optional(),
+  vitaminEPer100: z.number().min(0).max(100000).optional(),
+  vitaminKPer100: z.number().min(0).max(100000).optional(),
+  vitaminCPer100: z.number().min(0).max(100000).optional(),
+  phosphorusPer100: z.number().min(0).max(100000).optional(),
+  ironPer100: z.number().min(0).max(100000).optional(),
+  magnesiumPer100: z.number().min(0).max(100000).optional(),
+  zincPer100: z.number().min(0).max(100000).optional(),
+  copperPer100: z.number().min(0).max(100000).optional(),
+  manganesePer100: z.number().min(0).max(100000).optional(),
+  seleniumPer100: z.number().min(0).max(100000).optional(),
+  caffeinePer100: z.number().min(0).max(100000).optional(),
+  fruitsVegetablesLegumesPer100: z.number().min(0).max(100).optional(),
+  cholinePer100: z.number().min(0).max(100000).optional(),
+  servingSize: z.number().min(0).max(10000).optional(),
+  servingUnit: z.string().max(40).nullable().optional(),
+};
+
+const ProductBaseUnit = z.enum(["g", "kg", "ml", "l", "szt", "łyżka", "łyżeczka", "szklanka"]);
+
+export const ListMyProductsInput = z.object({
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).max(10000).optional(),
+});
+
+export const CreateMyProductInput = z.object({
+  name: z.string().min(1).max(200),
+  brand: z.string().max(120).optional(),
+  barcode: z.string().max(32).optional(),
+  baseUnit: ProductBaseUnit,
+  ...ProductNutritionFields,
+});
+
+export const UpdateMyProductInput = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1).max(200).optional(),
+    brand: z.string().max(120).nullable().optional(),
+    barcode: z.string().max(32).nullable().optional(),
+    baseUnit: ProductBaseUnit.optional(),
+    caloriesPer100: ProductNutritionFields.caloriesPer100.optional(),
+    proteinPer100: ProductNutritionFields.proteinPer100.optional(),
+    carbsPer100: ProductNutritionFields.carbsPer100.optional(),
+    fatPer100: ProductNutritionFields.fatPer100.optional(),
+    sugarPer100: ProductNutritionFields.sugarPer100,
+    fiberPer100: ProductNutritionFields.fiberPer100,
+    saltPer100: ProductNutritionFields.saltPer100,
+    saturatedFatPer100: ProductNutritionFields.saturatedFatPer100,
+    addedSugarsPer100: ProductNutritionFields.addedSugarsPer100,
+    starchPer100: ProductNutritionFields.starchPer100,
+    sodiumPer100: ProductNutritionFields.sodiumPer100,
+    vitaminAPer100: ProductNutritionFields.vitaminAPer100,
+    vitaminEPer100: ProductNutritionFields.vitaminEPer100,
+    vitaminKPer100: ProductNutritionFields.vitaminKPer100,
+    vitaminCPer100: ProductNutritionFields.vitaminCPer100,
+    phosphorusPer100: ProductNutritionFields.phosphorusPer100,
+    ironPer100: ProductNutritionFields.ironPer100,
+    magnesiumPer100: ProductNutritionFields.magnesiumPer100,
+    zincPer100: ProductNutritionFields.zincPer100,
+    copperPer100: ProductNutritionFields.copperPer100,
+    manganesePer100: ProductNutritionFields.manganesePer100,
+    seleniumPer100: ProductNutritionFields.seleniumPer100,
+    caffeinePer100: ProductNutritionFields.caffeinePer100,
+    fruitsVegetablesLegumesPer100: ProductNutritionFields.fruitsVegetablesLegumesPer100,
+    cholinePer100: ProductNutritionFields.cholinePer100,
+    servingSize: ProductNutritionFields.servingSize,
+    servingUnit: ProductNutritionFields.servingUnit,
+  })
+  .refine(({ id: _id, ...changes }) => Object.keys(changes).length > 0, "Provide at least one field to update");
+
+export const DeleteMyProductInput = z.object({ id: z.string().min(1) });
+
 export const WaterHistoryInput = z.object({
   from: z
     .string()

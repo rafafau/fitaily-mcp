@@ -120,11 +120,12 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "get_diet_plans",
     {
+      title: "Diet plans",
       description:
         "The user's diet plans (or public templates with tab=discover). Returns headline targets only — call get_diet_plan for the day-by-day meals.",
       inputSchema: ListDietPlansInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof ListDietPlansInput>) => {
       requireScope(auth, "nutrition:read");
@@ -145,11 +146,12 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "get_diet_plan",
     {
+      title: "Diet plan details",
       description:
         "Full diet plan by id: day-by-day meals with per-meal and per-day macro totals. Use maxDays to keep long plans readable.",
       inputSchema: GetDietPlanInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof GetDietPlanInput>) => {
       requireScope(auth, "nutrition:read");
@@ -169,11 +171,12 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "generate_diet_plan",
     {
+      title: "Generate a diet plan",
       description:
         "WRITE: generate a new diet plan and make it the active one (replaces the previous plan). Needs at least 3 recipes in the library or the public catalog — the catalog alone is enough. Templates: balanced, highprotein, lowcarb, keto, vegan, vegetarian. Confirm targets with the user first.",
       inputSchema: GenerateDietPlanInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: true },
+      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
     async (input: z.infer<typeof GenerateDietPlanInput>) => {
       requireScope(auth, "nutrition:write");
@@ -202,11 +205,12 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "activate_diet_plan",
     {
+      title: "Activate a diet plan",
       description:
         "WRITE: make an existing diet plan the active one, optionally from a given start date. Confirm with the user first.",
       inputSchema: ActivateDietPlanInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (input: z.infer<typeof ActivateDietPlanInput>) => {
       requireScope(auth, "nutrition:write");
@@ -232,11 +236,12 @@ export function registerDietPlanTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "extend_diet_plan",
     {
+      title: "Extend a diet plan",
       description:
         "WRITE: extend a diet plan by N more days (reuses the plan's template and targets). Confirm with the user first.",
       inputSchema: ExtendDietPlanInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof ExtendDietPlanInput>) => {
       requireScope(auth, "nutrition:write");

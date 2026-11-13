@@ -14,7 +14,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * One result shape for all 66 tools:
+ * One result shape for all MCP tools:
  *  - `content[0].text` keeps the wire format for text-only clients,
  *  - `structuredContent` mirrors the same JSON for clients that parse results,
  *  - both are derived from one `JSON.stringify`, so they cannot drift.

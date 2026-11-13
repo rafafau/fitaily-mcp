@@ -18,10 +18,11 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "get_progress_summary",
     {
+      title: "Progress summary",
       description: "Weight trend and latest measurement. Defaults to the last 30 days.",
       inputSchema: ProgressSummaryInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof ProgressSummaryInput>) => {
       requireScope(auth, "progress:read");
@@ -60,10 +61,11 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "get_measurement_history",
     {
+      title: "Measurement history",
       description: "Body measurements (weight, body fat, muscle, circumferences) over a range.",
       inputSchema: MeasurementHistoryInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof MeasurementHistoryInput>) => {
       requireScope(auth, "progress:read");
@@ -90,10 +92,11 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "get_goals",
     {
+      title: "Progress goals",
       description: "User goals with current vs target values.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "progress:read");
@@ -117,10 +120,11 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "add_measurement",
     {
+      title: "Log a measurement",
       description: "WRITE: log a body measurement (weight and/or composition). Confirm with the user first.",
       inputSchema: AddMeasurementInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof AddMeasurementInput>) => {
       requireScope(auth, "progress:write");
@@ -132,10 +136,11 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "add_goal",
     {
+      title: "Add a goal",
       description: "WRITE: create a goal (weight, workouts, custom). Confirm with the user first.",
       inputSchema: AddGoalInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof AddGoalInput>) => {
       requireScope(auth, "progress:write");
@@ -147,10 +152,11 @@ export function registerProgressTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "update_goal",
     {
+      title: "Update a goal",
       description: "WRITE: update a goal (values, completion). Confirm with the user first.",
       inputSchema: UpdateGoalInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof UpdateGoalInput>) => {
       requireScope(auth, "progress:write");

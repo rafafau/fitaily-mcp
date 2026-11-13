@@ -42,6 +42,14 @@ description: Use when the user asks what they ate today, wants to log or fix a m
 - Goals: `get_nutrition_goals`, then propose numbers and call `update_nutrition_goals`
   (`dailyCaloriesGoal` 500–15000; macros 0–1000 g) only after confirmation.
 
+## Workflow — personal products
+
+1. Use `get_my_products` to find a product and its id before editing or deleting it.
+2. For a new product, collect its name, base unit (`g`, `ml`, etc.) and nutrition per
+   100 g/ml; ask the user for missing values instead of guessing.
+3. Show the product name and changed fields, then wait for explicit confirmation before
+   `create_my_product`, `update_my_product` or `delete_my_product`.
+
 ## Tool cheat sheet
 
 | Tool                     | Use it for                          | Key arguments                                                                                                    |
@@ -55,6 +63,10 @@ description: Use when the user asks what they ate today, wants to log or fix a m
 | `update_meal`            | fix an entry                        | `id` + any changed field                                                                                         |
 | `delete_meal`            | remove an entry                     | `id`                                                                                                             |
 | `get_water_history`      | water log                           | `from?`, `to?`, `limit?`                                                                                         |
+| `get_my_products`        | products created by the user        | `limit?`, `offset?`                                                                                              |
+| `create_my_product`      | save a personal product             | name, baseUnit, calories/protein/carbs/fat per 100, optional brand/barcode/serving                                         |
+| `update_my_product`      | edit a personal product             | `id` + changed fields; existing values are preserved                                                              |
+| `delete_my_product`      | permanently delete a personal product | `id`                                                                                                           |
 | `log_water`              | add water                           | `amountMl`, `date?` (ISO)                                                                                        |
 | `delete_water_entry`     | undo water                          | `id`                                                                                                             |
 

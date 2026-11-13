@@ -38,11 +38,12 @@ export function registerExerciseTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "search_exercises",
     {
+      title: "Search exercises",
       description:
         "Search the Fitaily exercise catalog (name, category, equipment). Returns exerciseId values used when building a workout plan. Call this before create_workout_plan.",
       inputSchema: SearchExercisesInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof SearchExercisesInput>) => {
       requireScope(auth, "training:read");
@@ -63,10 +64,11 @@ export function registerExerciseTools(server: McpServer, auth: McpAuth, accessTo
   server.registerTool(
     "get_exercise",
     {
+      title: "Exercise details",
       description: "Single exercise by id (category, muscle group, equipment, type).",
       inputSchema: GetExerciseInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof GetExerciseInput>) => {
       requireScope(auth, "training:read");

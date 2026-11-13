@@ -1,5 +1,26 @@
+import type { Icon } from "@modelcontextprotocol/server";
+
 export const SERVER_NAME = "fitaily";
-export const SERVER_VERSION = "0.2.0";
+export const SERVER_VERSION = "0.3.0";
+export const SERVER_TITLE = "Fitaily";
+export const SERVER_DESCRIPTION = "Log meals, plan nutrition, and review training from your Fitaily account.";
+export const SERVER_INSTRUCTIONS =
+  "Fitaily gives access to the user’s own nutrition, training, and body-progress data. Start with get_dashboard_summary for an overview or get_today_nutrition for one day. Call get_profile before giving calorie or macro advice. Never invent food IDs, exercise IDs, or macros: use search_foods and search_exercises. Every write tool needs explicit user confirmation first: show a short summary, wait for “yes,” then call it. This is logging and information, not medical advice. Reply in the user’s language.";
+export const WEBSITE_URL = "https://fitaily.com/mcp";
+export const SERVER_ICONS: Icon[] = [
+  {
+    src: "https://fitaily.com/logo/light/Fitaily-512.png",
+    mimeType: "image/png",
+    sizes: ["512x512"],
+    theme: "light",
+  },
+  {
+    src: "https://fitaily.com/logo/dark/Fitaily-512.png",
+    mimeType: "image/png",
+    sizes: ["512x512"],
+    theme: "dark",
+  },
+];
 
 /** Strip trailing slashes so `${base}${path}` never doubles them. */
 function baseUrl(value: string): string {
@@ -55,7 +76,11 @@ export function rateLimitWindowMs(): number {
 }
 
 export function rateLimitMax(): number {
-  return Number(process.env.RATE_LIMIT_MAX || 300);
+  return Number(process.env.RATE_LIMIT_MAX || 10_000);
+}
+
+export function userRateLimitMax(): number {
+  return Number(process.env.MCP_USER_RATE_LIMIT_MAX || 300);
 }
 
 export function accessLogEnabled(): boolean {

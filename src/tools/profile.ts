@@ -16,11 +16,12 @@ export function registerProfileTools(server: McpServer, auth: McpAuth, accessTok
   server.registerTool(
     "get_profile",
     {
+      title: "Your Fitaily profile",
       description:
         "The user's profile: latest weight, height, age, sex, units, language, activity level, weight direction, target weight and current daily goals. Read this before giving calorie or macro advice.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "nutrition:read");
@@ -65,11 +66,12 @@ export function registerProfileTools(server: McpServer, auth: McpAuth, accessTok
   server.registerTool(
     "get_coach_plan",
     {
+      title: "Adaptive coach plan",
       description:
         "The adaptive coach plan: goal, phase, target weekly rate, current calorie target, macro strategy, protein per kg and the effective daily goals. Returns active=false when the user never enabled the coach.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "nutrition:read");
@@ -101,11 +103,12 @@ export function registerProfileTools(server: McpServer, auth: McpAuth, accessTok
   server.registerTool(
     "get_dashboard_summary",
     {
+      title: "Fitaily dashboard",
       description:
         "One-shot overview for an opening answer: today's calories, workouts completed this week, latest weight and personal records set this month.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "nutrition:read");

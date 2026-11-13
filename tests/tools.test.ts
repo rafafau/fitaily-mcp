@@ -14,6 +14,8 @@ import { registerStatsTools } from "../src/tools/stats.js";
 import { registerStrengthStatsTools } from "../src/tools/strengthStats.js";
 import { registerPantryTools } from "../src/tools/pantry.js";
 import { registerExerciseTools } from "../src/tools/exercises.js";
+import { registerProductTools } from "../src/tools/products.js";
+import { STARTER_PROMPTS } from "../src/prompts/starters.js";
 
 const SECRET = "test-secret";
 const RESOURCE = "https://mcp.fitaily.com/mcp";
@@ -28,9 +30,19 @@ function authHeader(scopes: string): string {
 
 type Handler = (input: any) => Promise<any>;
 const handlers = new Map<string, Handler>();
+type ToolDefinition = {
+  title?: string;
+  annotations?: {
+    readOnlyHint?: unknown;
+    destructiveHint?: unknown;
+    openWorldHint?: unknown;
+  };
+};
+const definitions = new Map<string, ToolDefinition>();
 
 class FakeServer {
-  registerTool(name: string, _def: unknown, handler: Handler): void {
+  registerTool(name: string, def: unknown, handler: Handler): void {
+    definitions.set(name, def as ToolDefinition);
     handlers.set(name, handler);
   }
 }
@@ -39,6 +51,7 @@ function wire(
   scopes = "nutrition:read nutrition:write training:read training:write progress:read progress:write",
 ): void {
   handlers.clear();
+  definitions.clear();
   const auth = verifyMcpToken(authHeader(scopes));
   const srv = new FakeServer() as unknown as McpServer;
   registerNutritionTools(srv, auth, "tok");
@@ -53,7 +66,43 @@ function wire(
   registerStrengthStatsTools(srv, auth, "tok");
   registerPantryTools(srv, auth, "tok");
   registerExerciseTools(srv, auth, "tok");
+  registerProductTools(srv, auth, "tok");
 }
+
+describe("tool and starter prompt metadata", () => {
+  it("gives all tools a title and explicit behavior annotations", () => {
+    wire();
+    expect(definitions.size).toBe(70);
+    for (const [name, definition] of definitions) {
+      expect(definition.title?.trim(), name).toBeTruthy();
+      expect(definition.annotations, name).toBeDefined();
+      expect(typeof definition.annotations?.readOnlyHint, name).toBe("boolean");
+      expect(typeof definition.annotations?.destructiveHint, name).toBe("boolean");
+      expect(typeof definition.annotations?.openWorldHint, name).toBe("boolean");
+      expect(definition.annotations?.openWorldHint, name).toBe(false);
+    }
+  });
+
+  it("references only registered tools from its ten starter prompts", () => {
+    wire();
+    expect(STARTER_PROMPTS).toHaveLength(10);
+    for (const prompt of STARTER_PROMPTS) {
+      expect(prompt.title.trim(), prompt.name).not.toBe("");
+      expect(prompt.description.trim(), prompt.name).not.toBe("");
+      expect(prompt.text.toLowerCase(), prompt.name).toContain("reply in the user's language");
+      for (const tool of prompt.tools) expect(definitions.has(tool), `${prompt.name}: ${tool}`).toBe(true);
+    }
+  });
+
+  it("requires a summary and explicit yes in both write prompts", () => {
+    for (const name of ["log_a_meal", "update_nutrition_goals"]) {
+      const text = STARTER_PROMPTS.find((prompt) => prompt.name === name)?.text.toLowerCase() ?? "";
+      expect(text, name).toContain("short summary");
+      expect(text, name).toContain("explicit");
+      expect(text, name).toContain("yes");
+    }
+  });
+});
 
 const calls: Array<{ url: string; method: string; body?: any }> = [];
 
@@ -175,6 +224,75 @@ describe("foods", () => {
     const out = await handlers.get("search_foods")!({ query: "twaróg" });
     expect(out.content[0].text).toContain("Twaróg");
     expect(out.content[0].text).toContain("per_100g");
+  });
+});
+
+describe("personal products", () => {
+  it("lists only the current user's saved-product projection", async () => {
+    wire();
+    stubFetch({
+      "/products/my-products": {
+        data: [
+          { id: "p1", name: "Oats", baseUnit: "g", caloriesPer100: 380, createdBy: { email: "private@example.com" } },
+        ],
+      },
+    });
+    const out = await handlers.get("get_my_products")!({ limit: 10 });
+    expect(calls[0].url).toContain("/products/my-products?limit=10&offset=0");
+    expect(out.content[0].text).toContain("Oats");
+    expect(out.content[0].text).not.toContain("private@example.com");
+  });
+
+  it("creates a private catalog product with nutrition per 100", async () => {
+    wire();
+    stubFetch({ "/products": { id: "p2", name: "Oats", baseUnit: "g", caloriesPer100: 380 } });
+    await handlers.get("create_my_product")!({
+      name: "Oats",
+      baseUnit: "g",
+      caloriesPer100: 380,
+      proteinPer100: 13,
+      carbsPer100: 68,
+      fatPer100: 7,
+    });
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].body.isPublic).toBeUndefined();
+    expect(calls[0].body.proteinPer100).toBe(13);
+  });
+
+  it("updates only requested fields and preserves other product data", async () => {
+    wire();
+    stubFetch({
+      "/products/p3": {
+        id: "p3",
+        name: "Oats",
+        brand: "Mill",
+        barcode: "1234",
+        baseUnit: "g",
+        caloriesPer100: 380,
+        proteinPer100: 13,
+        carbsPer100: 68,
+        fatPer100: 7,
+        fiberPer100: 10,
+        sodiumPer100: 2,
+      },
+    });
+    await handlers.get("update_my_product")!({ id: "p3", name: "Rolled oats" });
+    expect(calls).toHaveLength(2);
+    expect(calls[1].method).toBe("PUT");
+    expect(calls[1].body.name).toBe("Rolled oats");
+    expect(calls[1].body.brand).toBe("Mill");
+    expect(calls[1].body.fiberPer100).toBe(10);
+    expect(calls[1].body.sodiumPer100).toBe(2);
+  });
+
+  it("deletes by id and requires the nutrition write scope", async () => {
+    wire();
+    stubFetch({ "/products/p4": {} });
+    await handlers.get("delete_my_product")!({ id: "p4" });
+    expect(calls[0].method).toBe("DELETE");
+    expect(calls[0].url).toContain("/products/p4");
+    wire("nutrition:read");
+    await expect(handlers.get("delete_my_product")!({ id: "p4" })).rejects.toMatchObject({ status: 403 });
   });
 });
 

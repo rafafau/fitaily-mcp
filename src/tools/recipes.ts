@@ -114,11 +114,12 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "get_recipe_suggestions",
     {
+      title: "Recipe suggestions",
       description:
         "Recipe ideas ranked for the day's remaining calories (same discovery as the app). Filter by meal type and max prep time.",
       inputSchema: RecipeSuggestionInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof RecipeSuggestionInput>) => {
       requireScope(auth, "nutrition:read");
@@ -156,10 +157,11 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "get_my_recipes",
     {
+      title: "Your recipes",
       description: "The user's own saved recipes (id, name, times, servings).",
       inputSchema: ListRecipesInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof ListRecipesInput>) => {
       requireScope(auth, "nutrition:read");
@@ -174,11 +176,12 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "search_public_recipes",
     {
+      title: "Search public recipes",
       description:
         "Browse the public Fitaily recipe catalog (~300 recipes) with full filters. Search matches the dish name, description AND ingredient names (so 'chicken' finds recipes using chicken). Nutrition filters are per serving. Use sort=protein_desc or calories_asc for macro-targeted picks. Tag coverage is uneven — call get_recipe_tags first to see which tags exist and how many recipes each has. Most public recipes have no ratings yet, so minRatingCount>0 and sort=rating usually return little.",
       inputSchema: PublicRecipesInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof PublicRecipesInput>) => {
       requireScope(auth, "nutrition:read");
@@ -214,11 +217,12 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "get_recipe_tags",
     {
+      title: "Recipe tags",
       description:
         "Public recipe tag catalog with recipe counts. Use it before filtering by tags — many diet tags (keto, vegan, dairy-free) cover only a handful of recipes, while high-protein/vegetarian/gluten-free are broad.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "nutrition:read");
@@ -237,11 +241,12 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "get_public_recipe",
     {
+      title: "Public recipe details",
       description:
         "Full public recipe by slug (from search_public_recipes): ingredients with amounts, numbered steps, per-serving macros and tags.",
       inputSchema: GetPublicRecipeInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof GetPublicRecipeInput>) => {
       requireScope(auth, "nutrition:read");
@@ -253,10 +258,11 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "get_recipe",
     {
+      title: "Saved recipe details",
       description: "Full recipe by id: description, ingredient list with amounts and numbered steps.",
       inputSchema: GetRecipeInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof GetRecipeInput>) => {
       requireScope(auth, "nutrition:read");
@@ -268,11 +274,12 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "find_recipes_for_remaining_macros",
     {
+      title: "Recipes for remaining macros",
       description:
         "Pick recipes that fit what is LEFT of today's calorie budget. Combines the day summary (consumed vs goals) with the public catalog, then ranks by protein density. Optionally restricted to one meal type's share of the remaining budget.",
       inputSchema: RemainingMacrosRecipesInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof RemainingMacrosRecipesInput>) => {
       requireScope(auth, "nutrition:read");
@@ -324,10 +331,11 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "get_favorite_recipes",
     {
+      title: "Favorite recipes",
       description: "Recipes the user marked as favorites.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "nutrition:read");
@@ -340,11 +348,12 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "favorite_recipe",
     {
+      title: "Update recipe favorite",
       description:
         "WRITE: add or remove a recipe from favorites. Set favorite=false to remove (defaults to true). Confirm with the user first.",
       inputSchema: RecipeFavoriteInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (input: z.infer<typeof RecipeFavoriteInput>) => {
       requireScope(auth, "nutrition:write");
@@ -361,11 +370,12 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "rate_recipe",
     {
+      title: "Rate a recipe",
       description:
         "WRITE: rate a public recipe 1–5 stars (updates an existing rating). You cannot rate your own recipes. Confirm with the user first.",
       inputSchema: RateRecipeInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (input: z.infer<typeof RateRecipeInput>) => {
       requireScope(auth, "nutrition:write");
@@ -379,11 +389,12 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "create_recipe",
     {
+      title: "Create a recipe",
       description:
         "WRITE: save a recipe to the user's library. Confirm the whole recipe with the user first. Ingredients need amount+unit; include per-100g macros when you know them so the app can compute nutrition.",
       inputSchema: CreateRecipeInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof CreateRecipeInput>) => {
       requireScope(auth, "nutrition:write");
@@ -406,11 +417,12 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "update_recipe",
     {
+      title: "Update a recipe",
       description:
         "WRITE: edit a recipe by id. Send only the fields that change; ingredients/steps replace the whole list. Confirm with the user first.",
       inputSchema: UpdateRecipeInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof UpdateRecipeInput>) => {
       requireScope(auth, "nutrition:write");
@@ -423,10 +435,11 @@ export function registerRecipeTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "delete_recipe",
     {
+      title: "Delete a recipe",
       description: "WRITE: delete a recipe from the user's library. Confirm with the user first.",
       inputSchema: DeleteRecipeInput,
       outputSchema: JsonObjectOutput,
-      annotations: { destructiveHint: true },
+      annotations: { destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof DeleteRecipeInput>) => {
       requireScope(auth, "nutrition:write");

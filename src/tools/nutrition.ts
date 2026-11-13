@@ -74,11 +74,12 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "get_today_nutrition",
     {
+      title: "Today's nutrition",
       description:
         "Daily nutrition: consumed calories/macros, goals, remaining budget AND the itemized meal list. Defaults to today.",
       inputSchema: TodayNutritionInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof TodayNutritionInput>) => {
       requireScope(auth, "nutrition:read");
@@ -107,10 +108,11 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "get_meal_history",
     {
+      title: "Meal history",
       description: "Meal entries over a date range, optionally filtered by meal type.",
       inputSchema: MealHistoryInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof MealHistoryInput>) => {
       requireScope(auth, "nutrition:read");
@@ -129,10 +131,11 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "get_nutrition_goals",
     {
+      title: "Nutrition goals",
       description: "Current daily calorie and macro goals.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "nutrition:read");
@@ -144,11 +147,12 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "suggest_meal",
     {
+      title: "Meal suggestion",
       description:
         "What to eat next for a given meal type: the backend splits the remaining daily budget across meals and ranks candidates from the user's history, recipes and products. Returns projected macros and a match score; falls back to recipes when nothing fits.",
       inputSchema: SuggestMealInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof SuggestMealInput>) => {
       requireScope(auth, "nutrition:read");
@@ -183,10 +187,11 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "update_nutrition_goals",
     {
+      title: "Update nutrition goals",
       description: "WRITE: change daily calorie/macro goals. Confirm the new numbers with the user first.",
       inputSchema: UpdateNutritionGoalsInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof UpdateNutritionGoalsInput>) => {
       requireScope(auth, "nutrition:write");
@@ -198,11 +203,12 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "add_meal",
     {
+      title: "Log a meal",
       description:
         "WRITE: log a meal. Ask the user to confirm first (dish, meal type, macros). Macros are required — look them up with search_foods, never invent them. clientRequestId: generate once per user request (uuid) and reuse it if you retry, so a retry never duplicates the meal.",
       inputSchema: AddMealInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof AddMealInput>) => {
       requireScope(auth, "nutrition:write");
@@ -224,11 +230,12 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "update_meal",
     {
+      title: "Update a meal",
       description:
         "WRITE: edit a logged meal by id (from get_today_nutrition/get_meal_history). Confirm with the user first.",
       inputSchema: UpdateMealInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof UpdateMealInput>) => {
       requireScope(auth, "nutrition:write");
@@ -241,10 +248,11 @@ export function registerNutritionTools(server: McpServer, auth: McpAuth, accessT
   server.registerTool(
     "delete_meal",
     {
+      title: "Delete a meal",
       description: "WRITE: delete a logged meal by id. Confirm with the user first.",
       inputSchema: DeleteMealInput,
       outputSchema: JsonObjectOutput,
-      annotations: { destructiveHint: true },
+      annotations: { destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     },
     async (input) => {
       requireScope(auth, "nutrition:write");

@@ -2,11 +2,21 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { sign } from "jsonwebtoken";
 import type { Express } from "express";
+import {
+  SERVER_DESCRIPTION,
+  SERVER_INSTRUCTIONS,
+  SERVER_TITLE,
+  SERVER_VERSION,
+  SERVER_ICONS,
+  WEBSITE_URL,
+} from "../src/config.js";
+import { STARTER_PROMPTS } from "../src/prompts/starters.js";
 
 process.env.JWT_SECRET = "test-secret";
 process.env.MCP_RESOURCE_URL = "https://mcp.example.com/mcp";
 process.env.OAUTH_ISSUER = "https://issuer.example.com";
 process.env.RATE_LIMIT_MAX = "10000";
+process.env.MCP_USER_RATE_LIMIT_MAX = "10000";
 process.env.ACCESS_LOG = "false";
 
 const SECRET = "test-secret";
@@ -34,7 +44,7 @@ describe("service endpoints", () => {
   it("reports health with the package version", async () => {
     const res = await request(app).get("/health").expect(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.version).toBe("0.2.0");
+    expect(res.body.version).toBe(SERVER_VERSION);
   });
 
   it("serves RFC 9728 protected resource metadata", async () => {
@@ -116,6 +126,48 @@ describe("POST /mcp auth", () => {
       .expect(200);
     const body = parseRpc(res);
     expect(body.result.serverInfo.name).toBe("fitaily");
+    expect(body.result.serverInfo.version).toBe(SERVER_VERSION);
+    expect(body.result.serverInfo.title).toBe(SERVER_TITLE);
+    expect(body.result.serverInfo.description).toBe(SERVER_DESCRIPTION);
+    expect(body.result.serverInfo.websiteUrl).toBe(WEBSITE_URL);
+    expect(body.result.serverInfo.icons).toEqual(SERVER_ICONS);
+    expect(body.result.instructions).toBe(SERVER_INSTRUCTIONS);
+    expect(body.result.capabilities.prompts).toBeDefined();
+  });
+
+  it("lists all ten starter prompts over MCP", async () => {
+    const res = await request(app)
+      .post("/mcp")
+      .set("Authorization", bearer())
+      .set("Accept", "application/json, text/event-stream")
+      .send({ jsonrpc: "2.0", id: 2, method: "prompts/list", params: {} })
+      .expect(200);
+    const prompts = parseRpc(res).result.prompts;
+    expect(prompts).toHaveLength(10);
+    expect(prompts.map((prompt: { name: string }) => prompt.name)).toEqual(
+      STARTER_PROMPTS.map((prompt) => prompt.name),
+    );
+    for (const prompt of prompts) {
+      expect(prompt.title).toBeTruthy();
+      expect(prompt.description).toBeTruthy();
+    }
+  });
+
+  it("lists every tool with a title and explicit behavior annotations", async () => {
+    const res = await request(app)
+      .post("/mcp")
+      .set("Authorization", bearer())
+      .set("Accept", "application/json, text/event-stream")
+      .send({ jsonrpc: "2.0", id: 3, method: "tools/list", params: {} })
+      .expect(200);
+    const tools = parseRpc(res).result.tools;
+    expect(tools).toHaveLength(70);
+    for (const tool of tools) {
+      expect(tool.title).toBeTruthy();
+      expect(typeof tool.annotations?.readOnlyHint).toBe("boolean");
+      expect(typeof tool.annotations?.destructiveHint).toBe("boolean");
+      expect(typeof tool.annotations?.openWorldHint).toBe("boolean");
+    }
   });
 });
 
@@ -130,7 +182,7 @@ describe("tools over the wire", () => {
       .send({ jsonrpc: "2.0", id: 2, method: "tools/list" })
       .expect(200);
     const body = parseRpc(res);
-    expect(body.result.tools).toHaveLength(66);
+    expect(body.result.tools).toHaveLength(70);
     for (const tool of body.result.tools) {
       expect(tool.outputSchema, tool.name).toMatchObject({ type: "object" });
     }

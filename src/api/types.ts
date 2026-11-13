@@ -235,6 +235,7 @@ export interface FoodProduct {
   name?: string;
   brand?: string | null;
   barcode?: string | null;
+  baseUnit?: string;
   caloriesPer100?: number | null;
   calories?: number | null;
   proteinPer100?: number | null;
@@ -243,7 +244,28 @@ export interface FoodProduct {
   carbs?: number | null;
   fatPer100?: number | null;
   fat?: number | null;
-  servingSize?: string | null;
+  sugarPer100?: number | null;
+  fiberPer100?: number | null;
+  saltPer100?: number | null;
+  saturatedFatPer100?: number | null;
+  addedSugarsPer100?: number | null;
+  starchPer100?: number | null;
+  sodiumPer100?: number | null;
+  vitaminAPer100?: number | null;
+  vitaminEPer100?: number | null;
+  vitaminKPer100?: number | null;
+  vitaminCPer100?: number | null;
+  phosphorusPer100?: number | null;
+  ironPer100?: number | null;
+  magnesiumPer100?: number | null;
+  zincPer100?: number | null;
+  copperPer100?: number | null;
+  manganesePer100?: number | null;
+  seleniumPer100?: number | null;
+  caffeinePer100?: number | null;
+  fruitsVegetablesLegumesPer100?: number | null;
+  cholinePer100?: number | null;
+  servingSize?: number | string | null;
   servingUnit?: string | null;
 }
 

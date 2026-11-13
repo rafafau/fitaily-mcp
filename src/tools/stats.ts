@@ -38,11 +38,12 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "get_nutrition_stats",
     {
+      title: "Nutrition statistics",
       description:
         "Nutrition aggregates over a period: totals, daily averages, entries per meal type and how many days hit the calorie goal. Defaults to the last 30 days.",
       inputSchema: NutritionStatsInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof NutritionStatsInput>) => {
       requireScope(auth, "nutrition:read");
@@ -65,11 +66,12 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "get_activity_stats",
     {
+      title: "Activity statistics",
       description:
         "Activity aggregates over a period: total duration, calories burned, distance and a per-type breakdown. Defaults to the last 30 days.",
       inputSchema: ActivityStatsInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof ActivityStatsInput>) => {
       requireScope(auth, "training:read");
@@ -91,11 +93,12 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "get_measurement_stats",
     {
+      title: "Measurement statistics",
       description:
         "Body measurement aggregates over a period: min/max/average/first/latest for weight, body fat, muscle mass and BMI. Defaults to the last 30 days.",
       inputSchema: MeasurementStatsInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof MeasurementStatsInput>) => {
       requireScope(auth, "progress:read");
@@ -140,11 +143,12 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "get_goal_progress",
     {
+      title: "Goal progress",
       description:
         "Progress of every active goal (weight, workouts, custom): current vs target, percent complete and whether it is on track. Nutrition goals are excluded — use get_nutrition_goals.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "progress:read");
@@ -182,11 +186,12 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "query_nutrition_history",
     {
+      title: "Nutrition history by food",
       description:
         "Meals aggregated by product over a period: how many times it was eaten and the average calories/macros per occurrence. Answers 'what do I eat most often' without listing every entry.",
       inputSchema: NutritionHistoryInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof NutritionHistoryInput>) => {
       requireScope(auth, "nutrition:read");
@@ -221,11 +226,12 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "get_metric_trend",
     {
+      title: "Metric trend",
       description:
         "Daily series for one metric: measurements (weight/bodyFat/bmi/muscleMass), nutrition (calories/protein/carbs/fat), workouts (duration/burnedCalories) or hydration (amount). Returns points, delta and start/end values — ideal for a trend summary or a chart.",
       inputSchema: MetricTrendInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof MetricTrendInput>) => {
       requireScope(auth, "progress:read");
@@ -260,11 +266,12 @@ export function registerStatsTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "get_forecast",
     {
+      title: "Progress forecast",
       description:
         "TimesFM time-series forecast for one metric (weight, body fat, muscle, activity, food macros). Returns daily points with confidence bands. Needs enough history (metric-specific minimum) and is limited to 10 requests/minute; results are cached for 6h. Use it only when the user asks about the future (e.g. 'when will I reach my target weight'), not for current values.",
       inputSchema: ForecastInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof ForecastInput>) => {
       requireScope(auth, "progress:read");

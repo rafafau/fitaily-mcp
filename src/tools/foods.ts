@@ -12,11 +12,12 @@ export function registerFoodTools(server: McpServer, auth: McpAuth, accessToken:
   server.registerTool(
     "search_foods",
     {
+      title: "Search foods",
       description:
         "Search the food catalog by name (per-100g macros, servings). Call this before add_meal when the user names a product instead of giving macros.",
       inputSchema: FoodSearchInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof FoodSearchInput>) => {
       requireScope(auth, "nutrition:read");
@@ -46,10 +47,11 @@ export function registerFoodTools(server: McpServer, auth: McpAuth, accessToken:
   server.registerTool(
     "get_food_by_barcode",
     {
+      title: "Find food by barcode",
       description: "Look up a product by barcode (per-100g macros).",
       inputSchema: BarcodeInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof BarcodeInput>) => {
       requireScope(auth, "nutrition:read");

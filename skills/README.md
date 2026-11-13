@@ -1,7 +1,7 @@
 # Skills
 
 Agent skills that teach an MCP client **how to use the Fitaily tools** instead of
-guessing among 66 endpoints. Each skill is a self-contained `SKILL.md` with a workflow,
+guessing among 70 endpoints. Each skill is a self-contained `SKILL.md` with a workflow,
 a tool cheat sheet, guardrails and error handling.
 
 They are plain [Agent Skills](https://code.claude.com/docs/en/skills) — no build step, no

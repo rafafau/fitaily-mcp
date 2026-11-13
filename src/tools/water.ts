@@ -11,10 +11,11 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "get_water_history",
     {
+      title: "Water history",
       description: "Water intake entries over a date range.",
       inputSchema: WaterHistoryInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof WaterHistoryInput>) => {
       requireScope(auth, "nutrition:read");
@@ -36,10 +37,11 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "log_water",
     {
+      title: "Log water",
       description: "WRITE: log water intake in milliliters. Confirm with the user first.",
       inputSchema: LogWaterInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof LogWaterInput>) => {
       requireScope(auth, "nutrition:write");
@@ -54,10 +56,11 @@ export function registerWaterTools(server: McpServer, auth: McpAuth, accessToken
   server.registerTool(
     "delete_water_entry",
     {
+      title: "Delete water entry",
       description: "WRITE: delete a water entry by id. Confirm with the user first.",
       inputSchema: DeleteWaterInput,
       outputSchema: JsonObjectOutput,
-      annotations: { destructiveHint: true },
+      annotations: { destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof DeleteWaterInput>) => {
       requireScope(auth, "nutrition:write");

@@ -1,6 +1,6 @@
 {
   "name": "fitaily-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Remote MCP server exposing the Fitaily nutrition, training and progress API as tools",
   "license": "Apache-2.0",
   "type": "module",

@@ -1,6 +1,6 @@
 # Tool reference
 
-All 66 tools exposed by Fitaily MCP, grouped the same way as the source in
+All 70 tools exposed by Fitaily MCP, grouped the same way as the source in
 `src/tools/`. The table is the single source of truth for tool names: the
 `docs/tools.md` test fails when a tool is added or renamed without updating
 this file.
@@ -52,6 +52,10 @@ aggregates and forecasts.
 |---|---|---|---|
 | `search_foods` | Search the food catalog by name (per-100g macros, servings). Call this before add_meal when the user names a product instead of giving macros. | `nutrition:read` | read |
 | `get_food_by_barcode` | Look up a product by barcode (per-100g macros). | `nutrition:read` | read |
+| `get_my_products` | List products created by the user, including per-100g/ml nutrition; use ids from this list for edits or deletion. | `nutrition:read` | read |
+| `create_my_product` | WRITE: save a product to the user's private catalog. Nutrition values are per 100 g or ml; confirm the details first. | `nutrition:write` | write |
+| `update_my_product` | WRITE: edit a product created by the user by id. Only changed fields are needed; existing details are preserved. Confirm first. | `nutrition:write` | write |
+| `delete_my_product` | WRITE: permanently delete a product created by the user. Confirm its name before deleting. | `nutrition:write` | destructive |
 
 ## Water
 

@@ -27,11 +27,12 @@ export function registerStrengthStatsTools(server: McpServer, auth: McpAuth, acc
   server.registerTool(
     "get_personal_records",
     {
+      title: "Personal records",
       description:
         "All current personal records (1RM, max weight, max reps, max volume, best time) with the previous value so you can show the delta.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "training:read");
@@ -65,11 +66,12 @@ export function registerStrengthStatsTools(server: McpServer, auth: McpAuth, acc
   server.registerTool(
     "get_exercise_history",
     {
+      title: "Exercise history",
       description:
         "Completed sets of one exercise over the last N months (default 12, max 24), newest first — use it to judge progression before recommending loads.",
       inputSchema: ExerciseHistoryInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof ExerciseHistoryInput>) => {
       requireScope(auth, "training:read");
@@ -114,11 +116,12 @@ export function registerStrengthStatsTools(server: McpServer, auth: McpAuth, acc
   server.registerTool(
     "get_muscle_activation",
     {
+      title: "Muscle activation",
       description:
         "Completed sets per exercise since a date (default 30 days), for balance analysis: which muscles were trained and which were neglected.",
       inputSchema: MuscleActivationInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async (input) => {
       requireScope(auth, "training:read");

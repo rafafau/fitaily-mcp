@@ -2,10 +2,30 @@
 
 [![CI](https://github.com/rafafau/fitaily-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/rafafau/fitaily-mcp/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D26-brightgreen.svg)](package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D24-brightgreen.svg)](package.json)
 
 Remote [Model Context Protocol](https://modelcontextprotocol.io) server that exposes the
-Fitaily nutrition, training and progress API as **66 tools** over Streamable HTTP.
+Fitaily nutrition, training and progress API as **70 tools** over Streamable HTTP.
+
+## Connect in 30 seconds
+
+### Claude
+
+In [Claude](https://claude.ai/customize/connectors), open **Customize → Connectors → + Add → Add custom connector**. Name it `Fitaily`, enter `https://mcp.fitaily.com/mcp`, then sign in to Fitaily and choose read-only or read-and-write access. A connector added to your Claude account is also available in Claude mobile and desktop.
+
+### ChatGPT
+
+Custom MCP servers are currently available on ChatGPT Business and Enterprise/Edu workspaces, and setup is done on the web. Open **Plugins → + → Add custom MCP server**, enter `https://mcp.fitaily.com/mcp`, configure OAuth, review the warning, and create the plugin. Workspace permissions may limit who can add it. See [OpenAI's setup guide](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt).
+
+### Try it
+
+- “Review my meals and nutrition today.”
+- “Find a Fitaily food entry for this meal and prepare it for my log.”
+- “Summarize my training and body progress this week.”
+
+Fitaily offers read-only or read-and-write access during sign-in. For a write, ask the assistant to show the proposed change and wait for your explicit confirmation before saving. See the [Fitaily MCP guide](https://fitaily.com/mcp), [privacy policy](https://fitaily.com/privacy-policy), and [terms of service](https://fitaily.com/terms-of-service). Support: [info@fitaily.com](mailto:info@fitaily.com).
+
+---
 
 > **Companion server.** Fitaily MCP has no database and no business logic of its own: every
 > tool calls the Fitaily REST API with the user's OAuth token. You need a running Fitaily
@@ -38,12 +58,12 @@ Fitaily nutrition, training and progress API as **66 tools** over Streamable HTT
 
 | Requirement     | Notes                                                         |
 | --------------- | ------------------------------------------------------------- |
-| Node.js 26+     | matches the Docker image and CI                               |
+| Node.js 24+     | matches the package engine and Docker image                   |
 | pnpm 10+        | `corepack enable` is enough                                   |
 | Fitaily backend | must expose `/api/oauth/*` and accept the shared `JWT_SECRET` |
 | OAuth client    | any MCP client that supports remote HTTP + OAuth discovery    |
 
-## Quickstart
+## Self-hosting and local development
 
 ```bash
 git clone https://github.com/rafafau/fitaily-mcp.git
@@ -56,7 +76,7 @@ pnpm dev
 
 ```bash
 curl -s http://localhost:3091/health
-# {"success":true,"service":"fitaily","version":"0.2.0","timestamp":"…"}
+# {"success":true,"service":"fitaily","version":"0.3.0","timestamp":"…"}
 ```
 
 To exercise `/mcp` locally you need a token minted for this resource. Load the same
@@ -111,18 +131,7 @@ claude mcp add --transport http fitaily https://mcp.fitaily.com/mcp
 }
 ```
 
-**Claude Desktop** (no native remote transport — bridge it):
-
-```json
-{
-  "mcpServers": {
-    "fitaily": { "command": "npx", "args": ["-y", "mcp-remote", "https://mcp.fitaily.com/mcp"] }
-  }
-}
-```
-
-**ChatGPT** — Settings → Connectors → add a custom connector with the endpoint URL, then
-complete the OAuth prompt.
+For Claude Desktop, add the remote connector through your Claude account’s **Customize → Connectors** page; remote connectors are managed there rather than through `claude_desktop_config.json`.
 
 During OAuth the client registers itself dynamically, opens the Fitaily consent screen and
 receives an access token whose `aud` must equal `MCP_RESOURCE_URL`. A mismatch is rejected
@@ -141,7 +150,8 @@ with `403 Token audience mismatch`.
 | `TRUST_PROXY`          |                  | `1`                           | Reverse-proxy hops for client IP + `req.protocol` (one proxy/tunnel hop by default). Set `false` when directly exposed. |
 | `MCP_BODY_LIMIT`       |                  | `1mb`                         | Max JSON body for `POST /mcp`.                                                               |
 | `RATE_LIMIT_WINDOW_MS` |                  | `60000`                       | Rate-limit window per IP.                                                                    |
-| `RATE_LIMIT_MAX`       |                  | `300`                         | Requests per window per IP on `/mcp`.                                                        |
+| `RATE_LIMIT_MAX`       |                  | `10000`                       | Shared-host ceiling per source IP on `/mcp`; set high enough for hosted MCP clients.          |
+| `MCP_USER_RATE_LIMIT_MAX` |               | `300`                         | Authenticated requests per window per Fitaily user.                                           |
 | `ACCESS_LOG`           |                  | `true`                        | `false` disables the method/path/status access log.                                          |
 
 ## Authentication and scopes
@@ -173,7 +183,7 @@ Full reference with scopes and read/write/destructive labels: **[docs/tools.md](
 | Group             | Tools | Highlights                                                             |
 | ----------------- | ----- | ---------------------------------------------------------------------- |
 | Nutrition         | 8     | today's totals, meal history, goals, meal suggestions, meal CRUD       |
-| Foods             | 2     | catalog search, barcode lookup                                         |
+| Foods             | 6     | catalog search, barcode lookup and personal product CRUD               |
 | Water             | 3     | history, log, delete                                                   |
 | Recipes           | 13    | public catalog, tags, favorites, ratings, CRUD, “fit remaining macros” |
 | Diet plans        | 5     | list, detail, generate, activate, extend                               |
@@ -219,7 +229,7 @@ src/
   api/         fetch wrapper for the Fitaily API
   auth/        JWT verification + scope checks
   schemas/     zod input schemas shared by all tools
-  tools/       one file per domain (66 tools)
+  tools/       one file per domain (70 tools)
   config.ts    env parsing
   server.ts    express app, OAuth discovery, /mcp
 tests/         vitest + supertest
@@ -269,11 +279,11 @@ Put a TLS-terminating reverse proxy or tunnel in front of it and keep
 
 ## Privacy and data handling
 
-- The server stores nothing: no database, no cache, no files, no analytics.
-- Access logs contain method, path, status and duration only — never tokens or bodies.
-- Health data (meals, weight, workouts) passes through in memory for the duration of a
-  request. Fitaily's own privacy policy governs the backend data.
-- Rate-limit counters are in memory and disappear on restart.
+- The MCP server does not persist user records, prompts, tool results, tokens, or request bodies. It has no database or disk cache.
+- By default, its access log records HTTP method, path, status, and request duration only. It does not include user IDs, OAuth tokens, prompts, or tool results; set `ACCESS_LOG=false` to disable it.
+- Health and training data pass through the MCP process in memory to and from the Fitaily API for each request. The connected assistant receives the data returned for the user's request; the assistant provider's own privacy and retention terms also apply.
+- The Fitaily backend stores account data under the [Fitaily Privacy Policy](https://fitaily.com/privacy-policy). OAuth access tokens last 15 minutes; refresh tokens last 30 days and rotate when used. Users can revoke an assistant's access in Fitaily's **Settings → AI Integrations**.
+- Rate-limit counters are held in memory and disappear on restart.
 
 ## Security
 
@@ -285,8 +295,7 @@ Operational notes:
 - `JWT_SECRET` is shared with the backend. Rotating it invalidates every outstanding token.
 - Tokens are bearer credentials: never log them, never put them in a URL.
 - Keep `MCP_RESOURCE_URL` exact; a trailing slash or wrong scheme breaks the audience check.
-- The default rate limit is intentionally generous (300 req/min/IP). Tighten it for public
-  deployments if your clients make many parallel tool calls.
+- The default IP ceiling is intentionally high because hosted clients can share egress IPs. The authenticated per-user limit is 300 requests per minute; tune both limits for your deployment.
 
 ## Design decisions
 

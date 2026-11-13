@@ -17,11 +17,12 @@ export function registerPantryTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "get_fridge",
     {
+      title: "Fridge contents",
       description:
         "Everything in the user's fridge: name, quantity, category, expiry date and (when known) per-unit macros. Use it before suggesting meals from what they already own.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "nutrition:read");
@@ -47,11 +48,12 @@ export function registerPantryTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "add_fridge_item",
     {
+      title: "Add a fridge item",
       description:
         "WRITE: add an item to the fridge. Confirm with the user first. Category is a short label such as dairy, produce, meat, pantry.",
       inputSchema: AddFridgeItemInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof AddFridgeItemInput>) => {
       requireScope(auth, "nutrition:write");
@@ -76,10 +78,11 @@ export function registerPantryTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "delete_fridge_item",
     {
+      title: "Remove a fridge item",
       description: "WRITE: remove an item from the fridge by id. Confirm with the user first.",
       inputSchema: DeleteFridgeItemInput,
       outputSchema: JsonObjectOutput,
-      annotations: { destructiveHint: true },
+      annotations: { destructiveHint: true, readOnlyHint: false, openWorldHint: false },
     },
     async (input) => {
       requireScope(auth, "nutrition:write");
@@ -91,10 +94,11 @@ export function registerPantryTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "get_shopping_list",
     {
+      title: "Shopping list",
       description: "The current shopping list with item names, quantities, categories and completion state.",
       inputSchema: z.object({}),
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     async () => {
       requireScope(auth, "nutrition:read");
@@ -117,11 +121,12 @@ export function registerPantryTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "add_shopping_item",
     {
+      title: "Add a shopping item",
       description:
         "WRITE: add one item to the shopping list (creates the list when missing). Confirm with the user first.",
       inputSchema: AddShoppingItemInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (input: z.infer<typeof AddShoppingItemInput>) => {
       requireScope(auth, "nutrition:write");
@@ -137,10 +142,11 @@ export function registerPantryTools(server: McpServer, auth: McpAuth, accessToke
   server.registerTool(
     "update_shopping_item",
     {
+      title: "Update a shopping item",
       description: "WRITE: tick an item off (isCompleted=true) or edit its name/quantity. Confirm with the user first.",
       inputSchema: UpdateShoppingItemInput,
       outputSchema: JsonObjectOutput,
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async (input: z.infer<typeof UpdateShoppingItemInput>) => {
       requireScope(auth, "nutrition:write");
